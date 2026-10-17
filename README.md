@@ -5,7 +5,7 @@ management. It uses Node.js 24, Express, MongoDB/Mongoose, JWT, and Zod.
 
 ## Start locally (Windows PowerShell)
 
-Requirements: Node.js 24 and Docker Desktop.
+Requirements: Node.js 24 and a MongoDB instance (Docker, or a local service).
 
 Run these commands from the project root:
 
@@ -13,7 +13,6 @@ Run these commands from the project root:
 npm.cmd install
 Copy-Item .env.example .env
 notepad .env
-docker compose up -d
 npm.cmd run dev
 ```
 
@@ -24,9 +23,35 @@ characters. Generate one with:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Keep `.env` private; it is ignored by Git. The example config points to the
-MongoDB replica set started by Docker Compose. The API starts at
+Keep `.env` private; it is ignored by Git. The API starts at
 `http://localhost:5000`; check `http://localhost:5000/api/v1/health`.
+
+### Option A: Docker (recommended)
+
+Gives the single-node replica set that transactions need from Day 4 onwards.
+
+```powershell
+docker compose up -d
+docker compose ps   # wait until mongo reports healthy
+```
+
+`.env.example` already points here:
+`MONGODB_URI=mongodb://localhost:27017/ecommerce?replicaSet=rs0`.
+
+### Option B: a local MongoDB service
+
+Works for authentication, users, categories, and products. A standalone server
+does not support multi-document transactions, so switch to Option A (or a
+single-node replica set) before Day 4.
+
+```powershell
+Get-Service MongoDB   # confirm it is Running
+```
+
+Set `MONGODB_URI=mongodb://127.0.0.1:27017/ecommerce` (note: no `replicaSet`
+parameter) in `.env`.
+
+### Tests
 
 Run the tests (they do not need Docker or a running MongoDB):
 
