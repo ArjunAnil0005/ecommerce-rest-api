@@ -12,18 +12,14 @@ const updateMe = asyncHandler(async (req, res) => {
 });
 
 const listUsers = asyncHandler(async (req, res) => {
-  const result = await userService.listUsers(req.validated.query);
-  res
-    .status(200)
-    .json({ success: true, data: result.users, meta: result.meta });
+  const users = await userService.listUsers();
+  res.status(200).json({ success: true, data: users });
 });
 
 const setUserStatus = asyncHandler(async (req, res) => {
-  const user = await userService.setUserStatus(
-    req.user.id,
-    req.validated.params.id,
-    req.validated.body.isActive,
-  );
+  const { id } = req.validated.params;
+  const { isActive } = req.validated.body;
+  const user = await userService.setUserStatus(req.user, id, isActive);
   res.status(200).json({ success: true, data: { user } });
 });
 

@@ -33,33 +33,27 @@ async function seedAdmin() {
   }
 
   assertProductionSafePassword();
-
   await connectDB();
-  const email = env.ADMIN_EMAIL.toLowerCase();
-  const existingUser = await User.findOne({ email }).select('+password');
-
-  if (existingUser) {
-    if (existingUser.role !== 'admin' || !existingUser.isActive) {
-      existingUser.role = 'admin';
-      existingUser.isActive = true;
-      await existingUser.save();
+  try {
+    const email = env.ADMIN_EMAIL.toLowerCase();
+    if (await User.exists({ email })) {
+      throw new Error(`A user with ${email} already exists`);
     }
-    console.log(`Admin account already exists: ${email}`);
-    return;
-  }
 
-  await User.create({
-    name: env.ADMIN_NAME,
-    email,
-    password: env.ADMIN_PASSWORD,
-    role: 'admin',
-  });
-  console.log(`Admin account created: ${email}`);
+    await User.create({
+      name: env.ADMIN_NAME,
+      email,
+      password: env.ADMIN_PASSWORD,
+      role: 'admin',
+    });
+    console.log(`Admin account created: ${email}`);
+  } finally {
+    await disconnectDB();
+  }
 }
 
 seedAdmin()
   .catch((error) => {
     console.error('Admin seeding failed', error);
     process.exitCode = 1;
-  })
-  .finally(disconnectDB);
+  });

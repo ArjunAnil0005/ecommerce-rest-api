@@ -10,11 +10,5 @@
   },
   "rules": {
     "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
-  },
-  "overrides": [
-    {
-      "files": ["docker/mongo-init.js"],
-      "globals": { "rs": "readonly" }
-    }
-  ]
+  }
 }

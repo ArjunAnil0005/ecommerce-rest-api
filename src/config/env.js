@@ -6,8 +6,7 @@ dotenv.config();
 const emptyToUndefined = (schema) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
 
-// Reject secrets that are obviously the example values, so a copied placeholder
-// can never be used to sign real tokens.
+// Do not let an obvious placeholder sign real tokens.
 const PLACEHOLDER_SECRET = /^(replace|change[-_ ]?me|your[-_ ]|placeholder|secret$|test$)/i;
 
 const envSchema = z.object({
@@ -15,7 +14,6 @@ const envSchema = z.object({
     .enum(['development', 'test', 'production'])
     .default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(5000),
-  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   MONGODB_URI: z.string().min(1),
   JWT_SECRET: z
     .string()
@@ -51,7 +49,7 @@ if (!result.success) {
       'Invalid environment configuration:',
       details,
       '',
-      'Fix your .env file (copy .env.example to .env if it is missing) and try again.',
+      'Set MONGODB_URI and JWT_SECRET in your .env file, then try again.',
     ].join('\n'),
   );
   process.exit(1);

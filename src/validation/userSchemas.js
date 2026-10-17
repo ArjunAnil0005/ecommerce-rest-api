@@ -8,20 +8,11 @@ const updateMeSchema = z
   })
   .strict();
 
-const listUsersQuerySchema = z.object({
-  page: z.coerce.number().int().positive().optional(),
-  limit: z.coerce.number().int().min(1).max(100).optional(),
-  search: z.string().trim().max(100).optional(),
-  role: z.enum(['customer', 'admin']).optional(),
-  isActive: z.enum(['true', 'false']).optional(),
-});
-
 const userIdParamsSchema = z.object({ id: objectId });
 const updateStatusSchema = z.object({ isActive: z.boolean() }).strict();
 
 module.exports = {
   updateMeSchema,
-  listUsersQuerySchema,
   userIdParamsSchema,
   updateStatusSchema,
 };

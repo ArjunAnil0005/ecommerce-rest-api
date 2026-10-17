@@ -1,159 +1,158 @@
 # E-commerce REST API
 
-Day 1 provides the project foundation, customer authentication, and basic user
-management. It uses Node.js 24, Express, MongoDB/Mongoose, JWT, and Zod.
+A small learning project for the essentials of a REST API: Node.js, Express,
+MongoDB, password hashing, JWT authentication, input validation, and consistent
+error responses. Public registration creates customer accounts. Admins can
+view users and activate or deactivate accounts.
 
-## Start locally (Windows PowerShell)
+## Requirements
 
-Requirements: Node.js 24 and a MongoDB instance (Docker, or a local service).
+- Node.js 24 or later
+- MongoDB Community Server installed on Windows
 
-Run these commands from the project root:
+## Start on Windows
+
+Install MongoDB Community Server and make sure its Windows service is running.
+You can check the service from PowerShell:
+
+```powershell
+Get-Service MongoDB
+```
+
+If it is stopped, start it from the Windows Services app or run PowerShell as
+Administrator and use `Start-Service MongoDB`.
+
+This project uses a local standalone MongoDB server. It is enough for the
+current user and authentication APIs; MongoDB transactions, if needed in a
+future feature, require changing the database to a replica set.
+
+Then, from the project folder, install the API dependencies and open `.env`.
+Use `npm.cmd` if PowerShell blocks the `npm.ps1` script because of its execution
+policy.
 
 ```powershell
 npm.cmd install
-Copy-Item .env.example .env
 notepad .env
-npm.cmd run dev
 ```
 
-In `.env`, replace `JWT_SECRET` with a private random value of at least 32
-characters. Generate one with:
+Make sure `.env` contains the local MongoDB address and a private JWT secret:
+
+```env
+MONGODB_URI=mongodb://127.0.0.1:27017/ecommerce
+JWT_SECRET=put-a-random-secret-here
+```
+
+Generate a secret and replace the example text with its output:
 
 ```powershell
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Keep `.env` private; it is ignored by Git. The API starts at
-`http://localhost:5000`; check `http://localhost:5000/api/v1/health`.
+The secret must be at least 32 characters. Do not commit or share `.env`.
 
-### Option A: Docker (recommended)
-
-Gives the single-node replica set that transactions need from Day 4 onwards.
+Start the API:
 
 ```powershell
-docker compose up -d
-docker compose ps   # wait until mongo reports healthy
+npm.cmd run dev
 ```
 
-`.env.example` already points here:
-`MONGODB_URI=mongodb://localhost:27017/ecommerce?directConnection=true`.
+It listens on `http://localhost:5000`. Check
+`http://localhost:5000/api/v1/health`.
 
-`directConnection` tells the driver to use the address you gave instead of
-re-resolving the replica-set member name, which is what causes
-`MongoServerSelectionError` when the API runs on the host and Mongo runs in a
-container. Transactions still work because the member is a replica set.
+## Create an admin
 
-| Where the API runs | `MONGODB_URI` |
-| --- | --- |
-| Your machine, Mongo in Docker | `mongodb://localhost:27017/ecommerce?directConnection=true` |
-| Inside Docker Compose | `mongodb://mongo:27017/ecommerce?replicaSet=rs0` (compose overrides this) |
-| Local standalone Mongo | `mongodb://127.0.0.1:27017/ecommerce` |
-| MongoDB Atlas | `mongodb+srv://<user>:<password>@<cluster>.mongodb.net/ecommerce?retryWrites=true&w=majority` |
-
-### Option B: a local MongoDB service
-
-Works for authentication, users, categories, and products. A standalone server
-does not support multi-document transactions, so switch to Option A (or a
-single-node replica set) before Day 4.
+Set `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` in `.env`. Use a unique
+password of at least 12 characters, then run:
 
 ```powershell
-Get-Service MongoDB   # confirm it is Running
+npm.cmd run seed:admin
 ```
 
-Set `MONGODB_URI=mongodb://127.0.0.1:27017/ecommerce` (note: no `replicaSet`
-parameter) in `.env`.
+The seed script creates a new admin and refuses to promote an existing account.
+Public registration always creates a customer.
 
-### Tests
+## API
 
-Run the tests (they do not need Docker or a running MongoDB):
+All routes use the `/api/v1` prefix.
+
+| Method | Path | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/health` | Public | Check that the API is running |
+| `POST` | `/auth/register` | Public | Create a customer account |
+| `POST` | `/auth/login` | Public | Sign in and receive a JWT |
+| `GET` | `/users/me` | Signed in | View your profile |
+| `PATCH` | `/users/me` | Signed in | Change your name |
+| `GET` | `/users` | Admin | View all user accounts |
+| `PATCH` | `/users/:id/status` | Admin | Activate or deactivate an account |
+
+For protected routes, send the token returned by register or login in the
+`Authorization` header:
+
+```text
+Authorization: Bearer <token>
+```
+
+Example registration request:
+
+```json
+{
+  "name": "Sam Example",
+  "email": "sam@example.com",
+  "password": "a-unique-password"
+}
+```
+
+Passwords are hashed before storage and never returned by the API. Admin users
+cannot deactivate their own accounts. API errors use a JSON response with
+`success: false` and a readable `message`; invalid request fields are included
+in an `errors` array.
+
+## How the code is organized
+
+```text
+request -> routes -> middleware -> controllers -> services -> User model -> MongoDB
+                                      errors -> shared error handler
+```
+
+- **Routes** connect a URL to a controller and add the required middleware.
+- **Validation and authentication middleware** check incoming data and JWTs.
+- **Controllers** read validated input, call a service, and send the response.
+- **Services** contain the auth and user-management logic and access the model.
+- **The User model** describes stored user fields and hashes passwords.
+- **The error handler** turns expected and unexpected errors into JSON responses.
+
+## Configuration
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `MONGODB_URI` | Yes | MongoDB connection string |
+| `JWT_SECRET` | Yes | Private signing secret, at least 32 characters |
+| `PORT` | No | API port; defaults to `5000` |
+| `NODE_ENV` | No | `development`, `test`, or `production` |
+| `JWT_EXPIRES_IN` | No | Token lifetime; defaults to `1d` |
+| `BCRYPT_ROUNDS` | No | Password hashing cost; defaults to `12` |
+| `CORS_ORIGINS` | No | Comma-separated allowed browser origins |
+| `ADMIN_NAME` | For admin seed | Name for the initial admin |
+| `ADMIN_EMAIL` | For admin seed | Login email for the initial admin |
+| `ADMIN_PASSWORD` | For admin seed | Admin password, at least 12 characters |
+
+If startup reports missing environment variables, check that `.env` contains
+`MONGODB_URI` and a real `JWT_SECRET`.
+
+## Tests and lint
 
 ```powershell
 npm.cmd test
 npm.cmd run lint
 ```
 
-Tests start a throwaway in-memory MongoDB replica set with
-`mongodb-memory-server`, so nothing touches your local database. The first run
-downloads a MongoDB binary once and caches it.
+Tests use a temporary in-memory MongoDB, so they do not need your development
+database. The first test run may download a MongoDB binary.
 
-## Request flow
+## Project scope
 
-```text
-app -> versioned routes -> middleware -> controller -> service -> model -> MongoDB
-```
-
-- **Routes** select middleware and the controller.
-- **Middleware** validates input and checks identity/role.
-- **Controllers** pass validated inputs to services and return responses.
-- **Services** contain business rules.
-- **Models** define persisted data.
-
-For example, `PATCH /api/v1/users/me` authenticates and validates the request,
-then the controller calls the user service, which updates the user model.
-
-## Day 1 endpoints
-
-| Method | Endpoint | Access | Purpose |
-| --- | --- | --- | --- |
-| `GET` | `/api/v1/health` | Public | Check that the API is running |
-| `POST` | `/api/v1/auth/register` | Public | Register a customer |
-| `POST` | `/api/v1/auth/login` | Public | Log in and receive a JWT |
-| `GET` | `/api/v1/users/me` | Authenticated | Read your profile |
-| `PATCH` | `/api/v1/users/me` | Authenticated | Update your name |
-| `GET` | `/api/v1/users` | Admin | Search and paginate users |
-| `PATCH` | `/api/v1/users/:id/status` | Admin | Activate or deactivate a user |
-
-Registration always creates a customer. Passwords are hashed and omitted from
-responses. Send protected requests with `Authorization: Bearer <token>`.
-
-## Environment variables
-
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `NODE_ENV` | No | `development` | `development`, `test`, or `production` |
-| `PORT` | No | `5000` | HTTP port |
-| `LOG_LEVEL` | No | `info` | `debug`, `info`, `warn`, or `error` |
-| `MONGODB_URI` | Yes | – | MongoDB connection string |
-| `JWT_SECRET` | Yes | – | Signing secret, at least 32 characters |
-| `JWT_EXPIRES_IN` | No | `1d` | Token lifetime |
-| `BCRYPT_ROUNDS` | No | `12` | Password hashing cost (10–15) |
-| `CORS_ORIGINS` | No | – | Comma-separated browser origins allowed |
-| `ADMIN_NAME` | For seeding | – | Admin display name |
-| `ADMIN_EMAIL` | For seeding | – | Admin login email |
-| `ADMIN_PASSWORD` | For seeding | – | Admin password, at least 12 characters |
-
-Configuration is validated by Zod at boot, so the process exits with a clear
-message when a required value is missing or malformed. `JWT_SECRET` must also
-pass a placeholder check, so an example value cannot sign real tokens. The seed
-script refuses to run with a known placeholder password when
-`NODE_ENV=production`. `.env.example` ships with
-blank `JWT_SECRET` and `ADMIN_PASSWORD` on purpose: the API refuses to start
-until you set a real secret, and it never ships a working default password.
-`ADMIN_*` values are optional — leave them blank unless you are seeding an admin.
-
-If startup fails with `Invalid environment configuration`, the message lists the
-exact variables to fix. It usually means `.env` is missing (copy `.env.example`)
-or `JWT_SECRET` has not been set yet.
-
-## Admin account
-
-Admin creation is deliberately separate from public registration. To seed one,
-add `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` to your private `.env`
-file, then run:
-
-```powershell
-npm.cmd run seed:admin
-```
-
-Use a unique strong password. The seed script does not expose admin signup to
-the public API.
-
-## Before production
-
-- Set `MONGODB_URI` to the production MongoDB connection string and store it in
-  the deployment secret manager, not in source control.
-- Generate a new, private `JWT_SECRET` for each environment.
-- Set and rotate the admin credentials securely; do not use development values.
-- Use a managed, backed-up MongoDB deployment and restrict network access.
-- Configure production logging, monitoring, HTTPS, and request rate limits.
-- Complete and test the planned categories, products, orders, and stock flows.
+This project intentionally does not include products, orders, search, or
+pagination. The admin user list is intended for a small learning project, not a
+large production user base. Before exposing an API publicly, add appropriate
+rate limiting, pagination, deployment secrets, HTTPS, monitoring, and database
+backup/recovery procedures.

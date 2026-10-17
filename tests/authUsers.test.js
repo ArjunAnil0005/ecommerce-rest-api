@@ -186,19 +186,14 @@ describe('request handling', () => {
     expect(invalid.body.errors.length).toBeGreaterThan(0);
   });
 
-  test('returns paginated admin user results', async () => {
+  test('returns the user list only to admins', async () => {
     const response = await request(app)
-      .get('/api/v1/users?page=1&limit=1&search=admin')
+      .get('/api/v1/users')
       .set('Authorization', `Bearer ${adminToken}`);
 
     expect(response.status).toBe(200);
     expect(response.body.data).toHaveLength(1);
-    expect(response.body.meta).toMatchObject({
-      page: 1,
-      limit: 1,
-      total: 1,
-      pages: 1,
-    });
+    expect(response.body.data[0].email).toBe(admin.email);
     expect(response.body.data[0].password).toBeUndefined();
   });
 });
