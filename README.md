@@ -36,7 +36,19 @@ docker compose ps   # wait until mongo reports healthy
 ```
 
 `.env.example` already points here:
-`MONGODB_URI=mongodb://localhost:27017/ecommerce?replicaSet=rs0`.
+`MONGODB_URI=mongodb://localhost:27017/ecommerce?directConnection=true`.
+
+`directConnection` tells the driver to use the address you gave instead of
+re-resolving the replica-set member name, which is what causes
+`MongoServerSelectionError` when the API runs on the host and Mongo runs in a
+container. Transactions still work because the member is a replica set.
+
+| Where the API runs | `MONGODB_URI` |
+| --- | --- |
+| Your machine, Mongo in Docker | `mongodb://localhost:27017/ecommerce?directConnection=true` |
+| Inside Docker Compose | `mongodb://mongo:27017/ecommerce?replicaSet=rs0` (compose overrides this) |
+| Local standalone Mongo | `mongodb://127.0.0.1:27017/ecommerce` |
+| MongoDB Atlas | `mongodb+srv://<user>:<password>@<cluster>.mongodb.net/ecommerce?retryWrites=true&w=majority` |
 
 ### Option B: a local MongoDB service
 
@@ -100,6 +112,7 @@ responses. Send protected requests with `Authorization: Bearer <token>`.
 | --- | --- | --- | --- |
 | `NODE_ENV` | No | `development` | `development`, `test`, or `production` |
 | `PORT` | No | `5000` | HTTP port |
+| `LOG_LEVEL` | No | `info` | `debug`, `info`, `warn`, or `error` |
 | `MONGODB_URI` | Yes | – | MongoDB connection string |
 | `JWT_SECRET` | Yes | – | Signing secret, at least 32 characters |
 | `JWT_EXPIRES_IN` | No | `1d` | Token lifetime |
@@ -110,7 +123,10 @@ responses. Send protected requests with `Authorization: Bearer <token>`.
 | `ADMIN_PASSWORD` | For seeding | – | Admin password, at least 12 characters |
 
 Configuration is validated by Zod at boot, so the process exits with a clear
-message when a required value is missing or malformed. `.env.example` ships with
+message when a required value is missing or malformed. `JWT_SECRET` must also
+pass a placeholder check, so an example value cannot sign real tokens. The seed
+script refuses to run with a known placeholder password when
+`NODE_ENV=production`. `.env.example` ships with
 blank `JWT_SECRET` and `ADMIN_PASSWORD` on purpose: the API refuses to start
 until you set a real secret, and it never ships a working default password.
 `ADMIN_*` values are optional — leave them blank unless you are seeding an admin.
