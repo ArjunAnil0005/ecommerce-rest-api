@@ -3,6 +3,9 @@ const { z } = require('zod');
 
 dotenv.config();
 
+const emptyToUndefined = (schema) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
@@ -21,9 +24,10 @@ const envSchema = z.object({
         .map((origin) => origin.trim())
         .filter(Boolean),
     ),
-  ADMIN_NAME: z.string().trim().min(1).optional(),
-  ADMIN_EMAIL: z.string().email().optional(),
-  ADMIN_PASSWORD: z.string().min(12).optional(),
+  // Seeding the admin is optional, so an empty value means "not configured".
+  ADMIN_NAME: emptyToUndefined(z.string().trim().min(1)),
+  ADMIN_EMAIL: emptyToUndefined(z.string().email()),
+  ADMIN_PASSWORD: emptyToUndefined(z.string().min(12)),
 });
 
 const result = envSchema.safeParse(process.env);

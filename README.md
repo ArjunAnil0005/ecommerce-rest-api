@@ -110,7 +110,10 @@ responses. Send protected requests with `Authorization: Bearer <token>`.
 | `ADMIN_PASSWORD` | For seeding | – | Admin password, at least 12 characters |
 
 Configuration is validated by Zod at boot, so the process exits with a clear
-message when a required value is missing or malformed.
+message when a required value is missing or malformed. `.env.example` ships with
+blank `JWT_SECRET` and `ADMIN_PASSWORD` on purpose: the API refuses to start
+until you set a real secret, and it never ships a working default password.
+`ADMIN_*` values are optional — leave them blank unless you are seeding an admin.
 
 ## Admin account
 
