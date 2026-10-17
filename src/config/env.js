@@ -44,9 +44,17 @@ const result = envSchema.safeParse(process.env);
 
 if (!result.success) {
   const details = result.error.issues
-    .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-    .join('; ');
-  throw new Error(`Invalid environment configuration: ${details}`);
+    .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
+    .join('\n');
+  console.error(
+    [
+      'Invalid environment configuration:',
+      details,
+      '',
+      'Fix your .env file (copy .env.example to .env if it is missing) and try again.',
+    ].join('\n'),
+  );
+  process.exit(1);
 }
 
 module.exports = result.data;

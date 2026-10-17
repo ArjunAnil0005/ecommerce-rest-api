@@ -131,6 +131,10 @@ blank `JWT_SECRET` and `ADMIN_PASSWORD` on purpose: the API refuses to start
 until you set a real secret, and it never ships a working default password.
 `ADMIN_*` values are optional — leave them blank unless you are seeding an admin.
 
+If startup fails with `Invalid environment configuration`, the message lists the
+exact variables to fix. It usually means `.env` is missing (copy `.env.example`)
+or `JWT_SECRET` has not been set yet.
+
 ## Admin account
 
 Admin creation is deliberately separate from public registration. To seed one,
