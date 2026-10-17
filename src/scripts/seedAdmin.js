@@ -2,7 +2,7 @@ const { connectDB, disconnectDB } = require('../config/db');
 const env = require('../config/env');
 const User = require('../models/User');
 
-// Values that must never reach a production database.
+// Reject common placeholder passwords in production.
 const PLACEHOLDER_ADMIN_PASSWORDS = new Set([
   'change-me-admin-password',
   'changeme',
@@ -52,8 +52,7 @@ async function seedAdmin() {
   }
 }
 
-seedAdmin()
-  .catch((error) => {
-    console.error('Admin seeding failed', error);
-    process.exitCode = 1;
-  });
+seedAdmin().catch((error) => {
+  console.error('Admin seeding failed', error);
+  process.exitCode = 1;
+});

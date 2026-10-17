@@ -22,12 +22,14 @@ const userSchema = new mongoose.Schema(
 
 userSchema.pre('save', async function hashPassword() {
   if (!this.isModified('password')) return;
+  // Store only a hash, never the original password.
   this.password = await bcrypt.hash(this.password, env.BCRYPT_ROUNDS);
 });
 
 userSchema.set('toJSON', {
   virtuals: true,
   transform(_doc, ret) {
+    // Keep password hashes out of API responses.
     delete ret.password;
     delete ret.__v;
     return ret;

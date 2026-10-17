@@ -60,15 +60,34 @@ describe('authentication', () => {
   });
 
   test('rejects a weak password or malformed email with 422', async () => {
-    const weakPassword = await request(app)
-      .post('/api/v1/auth/register')
-      .send({ name: 'Customer', email: 'customer@example.com', password: 'short' });
-    const badEmail = await request(app)
-      .post('/api/v1/auth/register')
-      .send({ name: 'Customer', email: 'not-an-email', password: 'long-enough-1' });
+    const weakPassword = await request(app).post('/api/v1/auth/register').send({
+      name: 'Customer',
+      email: 'customer@example.com',
+      password: 'short',
+    });
+    const badEmail = await request(app).post('/api/v1/auth/register').send({
+      name: 'Customer',
+      email: 'not-an-email',
+      password: 'long-enough-1',
+    });
 
     expect(weakPassword.status).toBe(422);
     expect(badEmail.status).toBe(422);
+  });
+
+  test('rejects passwords longer than bcrypt can safely use', async () => {
+    const response = await request(app)
+      .post('/api/v1/auth/register')
+      .send({
+        name: 'Customer',
+        email: 'customer@example.com',
+        password: 'é'.repeat(37),
+      });
+
+    expect(response.status).toBe(422);
+    expect(response.body.errors[0].message).toBe(
+      'Password must be 72 bytes or fewer',
+    );
   });
 
   test('rejects operator-injection payloads with 422', async () => {

@@ -4,10 +4,14 @@ const { z } = require('zod');
 dotenv.config();
 
 const emptyToUndefined = (schema) =>
-  z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+  z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    schema.optional(),
+  );
 
-// Do not let an obvious placeholder sign real tokens.
-const PLACEHOLDER_SECRET = /^(replace|change[-_ ]?me|your[-_ ]|placeholder|secret$|test$)/i;
+// Reject obvious placeholder values for the JWT signing secret.
+const PLACEHOLDER_SECRET =
+  /^(replace|change[-_ ]?me|your[-_ ]|placeholder|secret$|test$)/i;
 
 const envSchema = z.object({
   NODE_ENV: z
@@ -32,7 +36,7 @@ const envSchema = z.object({
         .map((origin) => origin.trim())
         .filter(Boolean),
     ),
-  // Seeding the admin is optional, so an empty value means "not configured".
+  // Blank admin settings disable admin seeding.
   ADMIN_NAME: emptyToUndefined(z.string().trim().min(1)),
   ADMIN_EMAIL: emptyToUndefined(z.string().email()),
   ADMIN_PASSWORD: emptyToUndefined(z.string().min(12)),

@@ -75,15 +75,15 @@ Public registration always creates a customer.
 
 All routes use the `/api/v1` prefix.
 
-| Method | Path | Access | Purpose |
-| --- | --- | --- | --- |
-| `GET` | `/health` | Public | Check that the API is running |
-| `POST` | `/auth/register` | Public | Create a customer account |
-| `POST` | `/auth/login` | Public | Sign in and receive a JWT |
-| `GET` | `/users/me` | Signed in | View your profile |
-| `PATCH` | `/users/me` | Signed in | Change your name |
-| `GET` | `/users` | Admin | View all user accounts |
-| `PATCH` | `/users/:id/status` | Admin | Activate or deactivate an account |
+| Method  | Path                | Access    | Purpose                           |
+| ------- | ------------------- | --------- | --------------------------------- |
+| `GET`   | `/health`           | Public    | Check that the API is running     |
+| `POST`  | `/auth/register`    | Public    | Create a customer account         |
+| `POST`  | `/auth/login`       | Public    | Sign in and receive a JWT         |
+| `GET`   | `/users/me`         | Signed in | View your profile                 |
+| `PATCH` | `/users/me`         | Signed in | Change your name                  |
+| `GET`   | `/users`            | Admin     | View all user accounts            |
+| `PATCH` | `/users/:id/status` | Admin     | Activate or deactivate an account |
 
 For protected routes, send the token returned by register or login in the
 `Authorization` header:
@@ -123,18 +123,18 @@ request -> routes -> middleware -> controllers -> services -> User model -> Mong
 
 ## Configuration
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `MONGODB_URI` | Yes | MongoDB connection string |
-| `JWT_SECRET` | Yes | Private signing secret, at least 32 characters |
-| `PORT` | No | API port; defaults to `5000` |
-| `NODE_ENV` | No | `development`, `test`, or `production` |
-| `JWT_EXPIRES_IN` | No | Token lifetime; defaults to `1d` |
-| `BCRYPT_ROUNDS` | No | Password hashing cost; defaults to `12` |
-| `CORS_ORIGINS` | No | Comma-separated allowed browser origins |
-| `ADMIN_NAME` | For admin seed | Name for the initial admin |
-| `ADMIN_EMAIL` | For admin seed | Login email for the initial admin |
-| `ADMIN_PASSWORD` | For admin seed | Admin password, at least 12 characters |
+| Variable         | Required       | Purpose                                        |
+| ---------------- | -------------- | ---------------------------------------------- |
+| `MONGODB_URI`    | Yes            | MongoDB connection string                      |
+| `JWT_SECRET`     | Yes            | Private signing secret, at least 32 characters |
+| `PORT`           | No             | API port; defaults to `5000`                   |
+| `NODE_ENV`       | No             | `development`, `test`, or `production`         |
+| `JWT_EXPIRES_IN` | No             | Token lifetime; defaults to `1d`               |
+| `BCRYPT_ROUNDS`  | No             | Password hashing cost; defaults to `12`        |
+| `CORS_ORIGINS`   | No             | Comma-separated allowed browser origins        |
+| `ADMIN_NAME`     | For admin seed | Name for the initial admin                     |
+| `ADMIN_EMAIL`    | For admin seed | Login email for the initial admin              |
+| `ADMIN_PASSWORD` | For admin seed | Admin password, at least 12 characters         |
 
 If startup reports missing environment variables, check that `.env` contains
 `MONGODB_URI` and a real `JWT_SECRET`.
