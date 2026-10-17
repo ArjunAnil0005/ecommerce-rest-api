@@ -4,7 +4,7 @@ const User = require('../models/User');
 const ApiError = require('../utils/ApiError');
 const env = require('../config/env');
 
-function createToken(user) {
+function createJwtToken(user) {
   return jwt.sign({ id: user.id }, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRES_IN,
   });
@@ -24,7 +24,7 @@ async function register({ name, email, password }) {
       password,
       role: 'customer',
     });
-    return { user, token: createToken(user) };
+    return { user, token: createJwtToken(user) };
   } catch (error) {
     if (error.code === 11000) {
       throw new ApiError(409, 'An account with this email already exists');
@@ -46,7 +46,7 @@ async function login({ email, password }) {
     throw new ApiError(401, 'Invalid email or password');
   }
 
-  return { user, token: createToken(user) };
+  return { user, token: createJwtToken(user) };
 }
 
 module.exports = { register, login };

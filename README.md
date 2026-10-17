@@ -75,15 +75,15 @@ Public registration always creates a customer.
 
 All routes use the `/api/v1` prefix.
 
-| Method  | Path                | Access    | Purpose                           |
-| ------- | ------------------- | --------- | --------------------------------- |
-| `GET`   | `/health`           | Public    | Check that the API is running     |
-| `POST`  | `/auth/register`    | Public    | Create a customer account         |
-| `POST`  | `/auth/login`       | Public    | Sign in and receive a JWT         |
-| `GET`   | `/users/me`         | Signed in | View your profile                 |
-| `PATCH` | `/users/me`         | Signed in | Change your name                  |
-| `GET`   | `/users`            | Admin     | View all user accounts            |
-| `PATCH` | `/users/:id/status` | Admin     | Activate or deactivate an account |
+| Method  | Path                    | Access    | Purpose                           |
+| ------- | ----------------------- | --------- | --------------------------------- |
+| `GET`   | `/health`               | Public    | Check that the API is running     |
+| `POST`  | `/auth/register`        | Public    | Create a customer account         |
+| `POST`  | `/auth/login`           | Public    | Sign in and receive a JWT         |
+| `GET`   | `/users/me`             | Signed in | View your profile                 |
+| `PATCH` | `/users/me`             | Signed in | Change your name                  |
+| `GET`   | `/users`                | Admin     | View all user accounts            |
+| `PATCH` | `/users/:userId/status` | Admin     | Activate or deactivate an account |
 
 For protected routes, send the token returned by register or login in the
 `Authorization` header:

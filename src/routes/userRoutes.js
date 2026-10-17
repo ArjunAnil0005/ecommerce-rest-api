@@ -1,29 +1,29 @@
 const express = require('express');
 const userController = require('../controllers/userController');
 const authenticate = require('../middleware/authenticate');
-const authorize = require('../middleware/authorize');
+const requireAdmin = require('../middleware/requireAdmin');
 const validate = require('../middleware/validate');
 const {
-  updateMeSchema,
-  userIdParamsSchema,
-  updateStatusSchema,
+  updateProfileSchema,
+  targetUserParamsSchema,
+  updateUserStatusSchema,
 } = require('../validation/userSchemas');
 
 const router = express.Router();
 
 router.use(authenticate);
-router.get('/me', userController.getMe);
+router.get('/me', userController.getCurrentUser);
 router.patch(
   '/me',
-  validate({ body: updateMeSchema }),
-  userController.updateMe,
+  validate({ body: updateProfileSchema }),
+  userController.updateCurrentUserProfile,
 );
-router.get('/', authorize('admin'), userController.listUsers);
+router.get('/', requireAdmin, userController.listAllUsers);
 router.patch(
-  '/:id/status',
-  authorize('admin'),
-  validate({ params: userIdParamsSchema, body: updateStatusSchema }),
-  userController.setUserStatus,
+  '/:userId/status',
+  requireAdmin,
+  validate({ params: targetUserParamsSchema, body: updateUserStatusSchema }),
+  userController.updateUserStatus,
 );
 
 module.exports = router;

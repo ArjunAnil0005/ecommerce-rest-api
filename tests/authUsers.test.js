@@ -154,12 +154,12 @@ describe('protected routes', () => {
       email: 'customer@example.com',
       password: 'customer-password-123',
     });
-    const listUsers = await request(app)
+    const userListResponse = await request(app)
       .get('/api/v1/users')
       .set('Authorization', `Bearer ${customer.body.data.token}`);
 
     expect(selfDeactivation.status).toBe(400);
-    expect(listUsers.status).toBe(403);
+    expect(userListResponse.status).toBe(403);
   });
 });
 

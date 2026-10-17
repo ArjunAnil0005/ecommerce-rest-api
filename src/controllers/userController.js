@@ -1,26 +1,38 @@
 const userService = require('../services/userService');
 const asyncHandler = require('../utils/asyncHandler');
 
-const getMe = asyncHandler(async (req, res) => {
-  const user = await userService.getMe(req.user.id);
+const getCurrentUser = asyncHandler(async (req, res) => {
+  const user = await userService.getCurrentUser(req.user.id);
   res.status(200).json({ success: true, data: { user } });
 });
 
-const updateMe = asyncHandler(async (req, res) => {
-  const user = await userService.updateMe(req.user.id, req.validated.body);
+const updateCurrentUserProfile = asyncHandler(async (req, res) => {
+  const user = await userService.updateCurrentUserProfile(
+    req.user.id,
+    req.validated.body,
+  );
   res.status(200).json({ success: true, data: { user } });
 });
 
-const listUsers = asyncHandler(async (req, res) => {
-  const users = await userService.listUsers();
+const listAllUsers = asyncHandler(async (req, res) => {
+  const users = await userService.listAllUsers();
   res.status(200).json({ success: true, data: users });
 });
 
-const setUserStatus = asyncHandler(async (req, res) => {
-  const { id } = req.validated.params;
+const updateUserStatus = asyncHandler(async (req, res) => {
+  const { userId: targetUserId } = req.validated.params;
   const { isActive } = req.validated.body;
-  const user = await userService.setUserStatus(req.user, id, isActive);
+  const user = await userService.updateUserStatus(
+    req.user,
+    targetUserId,
+    isActive,
+  );
   res.status(200).json({ success: true, data: { user } });
 });
 
-module.exports = { getMe, updateMe, listUsers, setUserStatus };
+module.exports = {
+  getCurrentUser,
+  updateCurrentUserProfile,
+  listAllUsers,
+  updateUserStatus,
+};

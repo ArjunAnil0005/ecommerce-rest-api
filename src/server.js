@@ -1,9 +1,9 @@
 const app = require('./app');
-const { connectDB } = require('./config/db');
+const { connectToDatabase } = require('./config/db');
 const env = require('./config/env');
 
 async function startServer() {
-  await connectDB();
+  await connectToDatabase();
   app.listen(env.PORT, () => {
     console.log(`API listening on port ${env.PORT}`);
   });

@@ -1,4 +1,4 @@
-const { connectDB, disconnectDB } = require('../config/db');
+const { connectToDatabase, disconnectFromDatabase } = require('../config/db');
 const env = require('../config/env');
 const User = require('../models/User');
 
@@ -33,7 +33,7 @@ async function seedAdmin() {
   }
 
   assertProductionSafePassword();
-  await connectDB();
+  await connectToDatabase();
   try {
     const email = env.ADMIN_EMAIL.toLowerCase();
     if (await User.exists({ email })) {
@@ -48,7 +48,7 @@ async function seedAdmin() {
     });
     console.log(`Admin account created: ${email}`);
   } finally {
-    await disconnectDB();
+    await disconnectFromDatabase();
   }
 }
 
