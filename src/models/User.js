@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const env = require('../config/env');
 
+// Define a Mongoose schema for the User model with fields for name, email, password, role, and isActive status. It includes validation rules for each field and sets up pre-save middleware to hash the password before saving it to the database. The schema also defines a toJSON transformation to exclude sensitive information like the password hash from API responses.
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 100 },

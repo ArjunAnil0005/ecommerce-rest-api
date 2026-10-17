@@ -4,12 +4,14 @@ const User = require('../models/User');
 const ApiError = require('../utils/ApiError');
 const env = require('../config/env');
 
+// This service module provides functions for user authentication, including registration and login. It handles user creation, password hashing, and JWT token generation. The register function checks for existing users and creates a new user with a hashed password, while the login function verifies user credentials and returns a JWT token for authenticated sessions.
 function createJwtToken(user) {
   return jwt.sign({ id: user.id }, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRES_IN,
   });
 }
 
+// Register a new user by creating a user document in the database. It checks if a user with the provided email already exists and throws an ApiError if so. If the registration is successful, it returns the created user and a JWT token for authentication.
 async function register({ name, email, password }) {
   const normalizedEmail = email.toLowerCase();
 
@@ -33,6 +35,7 @@ async function register({ name, email, password }) {
   }
 }
 
+// Log in an existing user by verifying their email and password. It checks if the user exists, if the password matches the hashed password stored in the database, and if the user is active. If any of these checks fail, it throws an ApiError. If successful, it returns the user and a JWT token for authenticated sessions.
 async function login({ email, password }) {
   const user = await User.findOne({ email: email.toLowerCase() }).select(
     '+password',

@@ -3,11 +3,13 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 
 let mongo;
 
+// Connect to an in-memory MongoDB instance for testing purposes. This allows tests to run in isolation without affecting the actual database.
 async function connect() {
   mongo = await MongoMemoryServer.create();
   await mongoose.connect(mongo.getUri());
 }
 
+// Clear all collections in the in-memory MongoDB instance. This is useful for resetting the database state between tests to ensure test isolation and consistency.
 async function clear() {
   const { collections } = mongoose.connection;
   await Promise.all(
@@ -15,6 +17,7 @@ async function clear() {
   );
 }
 
+// Disconnect from the in-memory MongoDB instance and stop the server. This is typically done after all tests have completed to clean up resources.
 async function disconnect() {
   await mongoose.disconnect();
   if (mongo) await mongo.stop();

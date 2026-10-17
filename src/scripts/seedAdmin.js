@@ -11,6 +11,7 @@ const PLACEHOLDER_ADMIN_PASSWORDS = new Set([
   'secret123456',
 ]);
 
+// Ensure that the ADMIN_PASSWORD environment variable is not a placeholder value when running in production. If it is, throw an error to prevent seeding an insecure admin account.
 function assertProductionSafePassword() {
   if (env.NODE_ENV !== 'production') return;
 
@@ -27,6 +28,7 @@ function assertProductionSafePassword() {
   }
 }
 
+// Seed an admin user in the database using the ADMIN_NAME, ADMIN_EMAIL, and ADMIN_PASSWORD environment variables. This function checks if an admin user already exists with the specified email and creates a new admin user if not. It also ensures that the password is not a placeholder value in production.
 async function seedAdmin() {
   if (!env.ADMIN_NAME || !env.ADMIN_EMAIL || !env.ADMIN_PASSWORD) {
     throw new Error('ADMIN_NAME, ADMIN_EMAIL, and ADMIN_PASSWORD are required');
@@ -52,6 +54,7 @@ async function seedAdmin() {
   }
 }
 
+// Execute the seedAdmin function and handle any errors that occur during the seeding process. If an error occurs, log it to the console and set the process exit code to 1 to indicate failure.
 seedAdmin().catch((error) => {
   console.error('Admin seeding failed', error);
   process.exitCode = 1;
