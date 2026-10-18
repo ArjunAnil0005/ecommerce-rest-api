@@ -111,7 +111,8 @@ All routes use the `/api/v1` prefix.
 | `PATCH` | `/users/:userId/status`   | Admin     | Activate or deactivate an account |
 | `GET`   | `/categories/tree`        | Public    | Get the category tree             |
 | `POST`  | `/categories`             | Admin     | Create a category                 |
-| `PATCH` | `/categories/:categoryId` | Admin     | Move a category                   |
+| `PATCH` | `/categories/:categoryId` | Admin     | Rename and/or move a category     |
+| `DELETE`| `/categories/:categoryId` | Admin     | Delete a category without descendants |
 
 For protected routes, send the token returned by register or login in the
 `Authorization` header:
@@ -154,13 +155,20 @@ The category module supports creating categories, moving categories, and
 viewing the full tree. Each category stores its direct `parent` and its ordered
 `ancestors`, which lets the API find descendants when a category moves.
 Category names must be unique among siblings. Moves update the category and
-all descendants in a MongoDB transaction.
+all descendants in a MongoDB transaction. Category responses include a slug
+derived from the name. A category with descendants cannot be deleted.
 
 Create a root category by omitting `parent`; create a child by providing its
 parent ID. To move a category to the root, set `parent` to `null`. The API
 calculates `ancestors`; clients must not send that field. A category cannot be
 moved beneath itself or any of its descendants. For example, after creating
 `Electronics -> Mobiles`, moving `Electronics` under `Mobiles` returns `400`.
+
+Use `PATCH /api/v1/categories/:categoryId` with `{"name":"Samsung Phones"}` to
+rename a category, `{"parent":"<parentCategoryId>"}` to move it, or include
+both fields to rename and move in one request. Circular-move and parent-delete
+checks must run before moving descendants out from under that parent; after
+moving `Mobiles` elsewhere, `Electronics` no longer contains those descendants.
 
 ## Configuration
 

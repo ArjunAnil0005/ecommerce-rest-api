@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const slugifyCategoryName = require('../utils/slugifyCategoryName');
 
 const categorySchema = new mongoose.Schema({
   name: {
@@ -14,6 +15,18 @@ const categorySchema = new mongoose.Schema({
     default: null,
   },
   ancestors: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
+});
+
+categorySchema.virtual('slug').get(function getSlug() {
+  return slugifyCategoryName(this.name, this._id);
+});
+
+categorySchema.set('toJSON', {
+  virtuals: true,
+  transform(_doc, ret) {
+    delete ret.id;
+    return ret;
+  },
 });
 
 categorySchema.index(

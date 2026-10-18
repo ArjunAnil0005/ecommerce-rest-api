@@ -9,12 +9,18 @@ const createCategorySchema = z
   })
   .strict();
 
-const moveCategorySchema = z.object({ parent: categoryId.nullable() }).strict();
+const updateCategorySchema = z
+  .object({
+    name: z.string().trim().min(2).max(100).optional(),
+    parent: categoryId.nullable().optional(),
+  })
+  .strict()
+  .refine((updates) => updates.name !== undefined || updates.parent !== undefined);
 
 const categoryIdParamsSchema = z.object({ categoryId });
 
 module.exports = {
   createCategorySchema,
-  moveCategorySchema,
+  updateCategorySchema,
   categoryIdParamsSchema,
 };

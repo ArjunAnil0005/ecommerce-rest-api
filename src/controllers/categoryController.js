@@ -11,12 +11,24 @@ const getCategoryTree = asyncHandler(async (_req, res) => {
   res.status(200).json({ success: true, data: categories });
 });
 
-const moveCategory = asyncHandler(async (req, res) => {
-  const category = await categoryService.moveCategory(
+const updateCategory = asyncHandler(async (req, res) => {
+  const category = await categoryService.updateCategory(
     req.validated.params.categoryId,
-    req.validated.body.parent,
+    req.validated.body,
   );
   res.status(200).json({ success: true, data: { category } });
 });
 
-module.exports = { createCategory, getCategoryTree, moveCategory };
+const deleteCategory = asyncHandler(async (req, res) => {
+  const category = await categoryService.deleteCategory(
+    req.validated.params.categoryId,
+  );
+  res.status(200).json({ success: true, data: { category } });
+});
+
+module.exports = {
+  createCategory,
+  getCategoryTree,
+  updateCategory,
+  deleteCategory,
+};

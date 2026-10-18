@@ -5,7 +5,7 @@ const requireAdmin = require('../middleware/requireAdmin');
 const validate = require('../middleware/validate');
 const {
   createCategorySchema,
-  moveCategorySchema,
+  updateCategorySchema,
   categoryIdParamsSchema,
 } = require('../validation/categorySchemas');
 
@@ -23,8 +23,15 @@ router.patch(
   '/:categoryId',
   authenticate,
   requireAdmin,
-  validate({ params: categoryIdParamsSchema, body: moveCategorySchema }),
-  categoryController.moveCategory,
+  validate({ params: categoryIdParamsSchema, body: updateCategorySchema }),
+  categoryController.updateCategory,
+);
+router.delete(
+  '/:categoryId',
+  authenticate,
+  requireAdmin,
+  validate({ params: categoryIdParamsSchema }),
+  categoryController.deleteCategory,
 );
 
 module.exports = router;

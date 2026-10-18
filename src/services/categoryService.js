@@ -37,13 +37,30 @@ async function createCategory({ name, parent = null }) {
 }
 
 async function getCategoryTree() {
-  const categories = await Category.find().sort({ name: 1 }).lean();
+  const documents = await Category.find().sort({ name: 1 });
+  const categories = documents.map((category) => {
+    const serializedCategory = category.toObject({ virtuals: true });
+    delete serializedCategory.id;
+    return serializedCategory;
+  });
   return buildCategoryTree(categories);
 }
 
-async function moveCategory(categoryId, parentId) {
+async function updateCategory(categoryId, updates) {
   assertValidCategoryId(categoryId);
-  if (parentId) assertValidCategoryId(parentId);
+  const hasParentUpdate = Object.hasOwn(updates, 'parent');
+  if (hasParentUpdate && updates.parent) assertValidCategoryId(updates.parent);
+
+  if (!hasParentUpdate) {
+    const category = await Category.findById(categoryId);
+    if (!category) throw new ApiError(404, 'Category not found');
+    category.name = updates.name;
+    try {
+      return await category.save();
+    } catch (error) {
+      handleDuplicateName(error);
+    }
+  }
 
   const session = await mongoose.startSession();
 
@@ -54,10 +71,10 @@ async function moveCategory(categoryId, parentId) {
       const category = await Category.findById(categoryId).session(session);
       if (!category) throw new ApiError(404, 'Category not found');
 
-      const newParent = parentId
-        ? await Category.findById(parentId).session(session)
+      const newParent = updates.parent
+        ? await Category.findById(updates.parent).session(session)
         : null;
-      if (parentId && !newParent) {
+      if (updates.parent && !newParent) {
         throw new ApiError(404, 'Parent category not found');
       }
 
@@ -95,6 +112,7 @@ async function moveCategory(categoryId, parentId) {
 
       category.parent = newParent ? newParent._id : null;
       category.ancestors = newAncestors;
+      if (updates.name !== undefined) category.name = updates.name;
       movedCategory = await category.save({ session });
     });
 
@@ -117,4 +135,22 @@ async function moveCategory(categoryId, parentId) {
   }
 }
 
-module.exports = { createCategory, getCategoryTree, moveCategory };
+async function deleteCategory(categoryId) {
+  assertValidCategoryId(categoryId);
+  const category = await Category.findById(categoryId);
+  if (!category) throw new ApiError(404, 'Category not found');
+
+  if (await Category.exists({ ancestors: category._id })) {
+    throw new ApiError(409, 'Cannot delete a category that has descendants');
+  }
+
+  await Category.deleteOne({ _id: category._id });
+  return category;
+}
+
+module.exports = {
+  createCategory,
+  getCategoryTree,
+  updateCategory,
+  deleteCategory,
+};
