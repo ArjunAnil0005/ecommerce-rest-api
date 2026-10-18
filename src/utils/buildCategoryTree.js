@@ -8,7 +8,6 @@ function buildCategoryTree(categories) {
   const roots = [];
 
   for (const node of nodesById.values()) {
-    // Do not promote a child to a root if its parent is missing.
     if (node.parent === null) {
       roots.push(node);
       continue;

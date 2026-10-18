@@ -100,21 +100,18 @@ Public registration always creates a customer.
 
 All routes use the `/api/v1` prefix.
 
-| Method   | Path                      | Access    | Purpose                                |
-| -------- | ------------------------- | --------- | -------------------------------------- |
-| `GET`    | `/health`                 | Public    | Check that the API is running          |
-| `POST`   | `/auth/register`          | Public    | Create a customer account              |
-| `POST`   | `/auth/login`             | Public    | Sign in and receive a JWT              |
-| `GET`    | `/users/me`               | Signed in | View your profile                      |
-| `PATCH`  | `/users/me`               | Signed in | Change your name                       |
-| `GET`    | `/users`                  | Admin     | View all user accounts                 |
-| `PATCH`  | `/users/:userId/status`   | Admin     | Activate or deactivate an account      |
-| `GET`    | `/categories`             | Public    | List active categories                 |
-| `GET`    | `/categories/tree`        | Public    | Get the active category tree           |
-| `GET`    | `/categories/:categoryId` | Public    | Get one active category and children   |
-| `POST`   | `/categories`             | Admin     | Create a category                      |
-| `PATCH`  | `/categories/:categoryId` | Admin     | Rename, move, or deactivate a category |
-| `DELETE` | `/categories/:categoryId` | Admin     | Delete a category with no children     |
+| Method  | Path                      | Access    | Purpose                           |
+| ------- | ------------------------- | --------- | --------------------------------- |
+| `GET`   | `/health`                 | Public    | Check that the API is running     |
+| `POST`  | `/auth/register`          | Public    | Create a customer account         |
+| `POST`  | `/auth/login`             | Public    | Sign in and receive a JWT         |
+| `GET`   | `/users/me`               | Signed in | View your profile                 |
+| `PATCH` | `/users/me`               | Signed in | Change your name                  |
+| `GET`   | `/users`                  | Admin     | View all user accounts            |
+| `PATCH` | `/users/:userId/status`   | Admin     | Activate or deactivate an account |
+| `GET`   | `/categories/tree`        | Public    | Get the category tree             |
+| `POST`  | `/categories`             | Admin     | Create a category                 |
+| `PATCH` | `/categories/:categoryId` | Admin     | Move a category                   |
 
 For protected routes, send the token returned by register or login in the
 `Authorization` header:
@@ -153,23 +150,17 @@ request -> routes -> middleware -> controllers -> services -> User model -> Mong
 - **The Category model** stores each category's parent and ancestor IDs.
 - **The error handler** turns expected and unexpected errors into JSON responses.
 
-Category reads are public and show active categories only. Inactive categories
-and their descendants are hidden. Admins who send a valid Bearer token can also
-see inactive categories. Category names must be unique among siblings. Moving a
-category updates the ancestor paths of its descendants in a transaction;
-deleting a category with children returns `409`. Product-reference checks will
-be added when the Product model is introduced.
+The category module supports creating categories, moving categories, and
+viewing the full tree. Each category stores its direct `parent` and its ordered
+`ancestors`, which lets the API find descendants when a category moves.
+Category names must be unique among siblings. Moves update the category and
+all descendants in a MongoDB transaction.
 
-Category creation accepts a name and an optional parent ID. To move a category
-to the root, set `parent` to `null`. The API calculates `ancestors`; clients
-must not send that field.
-
-```json
-{
-  "name": "Mobiles",
-  "parent": "507f1f77bcf86cd799439011"
-}
-```
+Create a root category by omitting `parent`; create a child by providing its
+parent ID. To move a category to the root, set `parent` to `null`. The API
+calculates `ancestors`; clients must not send that field. A category cannot be
+moved beneath itself or any of its descendants. For example, after creating
+`Electronics -> Mobiles`, moving `Electronics` under `Mobiles` returns `400`.
 
 ## Configuration
 

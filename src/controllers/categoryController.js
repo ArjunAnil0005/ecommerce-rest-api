@@ -6,52 +6,17 @@ const createCategory = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: { category } });
 });
 
-const listCategories = asyncHandler(async (req, res) => {
-  const includeInactive = req.user?.role === 'admin';
-  const result = await categoryService.listCategories(
-    req.validated.query,
-    includeInactive,
-  );
-  res.status(200).json({
-    success: true,
-    data: result.categories,
-    meta: result.meta,
-  });
-});
-
-const getCategoryTree = asyncHandler(async (req, res) => {
-  const includeInactive = req.user?.role === 'admin';
-  const categories = await categoryService.getCategoryTree(includeInactive);
+const getCategoryTree = asyncHandler(async (_req, res) => {
+  const categories = await categoryService.getCategoryTree();
   res.status(200).json({ success: true, data: categories });
 });
 
-const getCategoryById = asyncHandler(async (req, res) => {
-  const includeInactive = req.user?.role === 'admin';
-  const category = await categoryService.getCategoryById(
+const moveCategory = asyncHandler(async (req, res) => {
+  const category = await categoryService.moveCategory(
     req.validated.params.categoryId,
-    includeInactive,
+    req.validated.body.parent,
   );
   res.status(200).json({ success: true, data: { category } });
 });
 
-const updateCategory = asyncHandler(async (req, res) => {
-  const category = await categoryService.updateCategory(
-    req.validated.params.categoryId,
-    req.validated.body,
-  );
-  res.status(200).json({ success: true, data: { category } });
-});
-
-const deleteCategory = asyncHandler(async (req, res) => {
-  await categoryService.deleteCategory(req.validated.params.categoryId);
-  res.status(204).send();
-});
-
-module.exports = {
-  createCategory,
-  listCategories,
-  getCategoryTree,
-  getCategoryById,
-  updateCategory,
-  deleteCategory,
-};
+module.exports = { createCategory, getCategoryTree, moveCategory };
