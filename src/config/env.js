@@ -1,10 +1,8 @@
 const dotenv = require('dotenv');
 const { z } = require('zod');
 
-// Load environment variables from .env file and validate them using Zod schema
 dotenv.config();
 
-// Helper function to treat empty strings as undefined for optional fields
 const emptyToUndefined = (schema) =>
   z.preprocess(
     (value) => (value === '' ? undefined : value),
@@ -15,7 +13,6 @@ const emptyToUndefined = (schema) =>
 const PLACEHOLDER_SECRET =
   /^(replace|change[-_ ]?me|your[-_ ]|placeholder|secret$|test$)/i;
 
-// Define a Zod schema for environment variables with validation rules and default values
 const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
@@ -45,10 +42,8 @@ const envSchema = z.object({
   ADMIN_PASSWORD: emptyToUndefined(z.string().min(12)),
 });
 
-// Validate the environment variables against the schema and handle any validation errors
 const result = envSchema.safeParse(process.env);
 
-// If validation fails, log the errors and exit the process with a non-zero exit code
 if (!result.success) {
   const details = result.error.issues
     .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)

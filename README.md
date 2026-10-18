@@ -22,9 +22,34 @@ Get-Service MongoDB
 If it is stopped, start it from the Windows Services app or run PowerShell as
 Administrator and use `Start-Service MongoDB`.
 
-This project uses a local standalone MongoDB server. It is enough for the
-current user and authentication APIs; MongoDB transactions, if needed in a
-future feature, require changing the database to a replica set.
+Category moves use MongoDB transactions, so configure the local server as a
+single-node replica set. Open the MongoDB configuration file as Administrator:
+
+```powershell
+notepad "C:\Program Files\MongoDB\Server\9.0\bin\mongod.cfg"
+```
+
+Add or uncomment this section, then save:
+
+```yaml
+replication:
+  replSetName: rs0
+```
+
+Restart MongoDB from an Administrator PowerShell window:
+
+```powershell
+Restart-Service MongoDB
+```
+
+Initialize the replica set once:
+
+```powershell
+mongosh --eval "rs.initiate({_id:'rs0',members:[{_id:0,host:'127.0.0.1:27017'}]})"
+```
+
+If MongoDB says the replica set is already initialized, check it with
+`mongosh --eval "rs.status()"` and do not initialize it again.
 
 Then, from the project folder, install the API dependencies and open `.env`.
 Use `npm.cmd` if PowerShell blocks the `npm.ps1` script because of its execution
@@ -35,10 +60,10 @@ npm.cmd install
 notepad .env
 ```
 
-Make sure `.env` contains the local MongoDB address and a private JWT secret:
+Make sure `.env` contains the replica-set address and a private JWT secret:
 
 ```env
-MONGODB_URI=mongodb://127.0.0.1:27017/ecommerce
+MONGODB_URI=mongodb://127.0.0.1:27017/ecommerce?replicaSet=rs0
 JWT_SECRET=put-a-random-secret-here
 ```
 
@@ -75,15 +100,21 @@ Public registration always creates a customer.
 
 All routes use the `/api/v1` prefix.
 
-| Method  | Path                    | Access    | Purpose                           |
-| ------- | ----------------------- | --------- | --------------------------------- |
-| `GET`   | `/health`               | Public    | Check that the API is running     |
-| `POST`  | `/auth/register`        | Public    | Create a customer account         |
-| `POST`  | `/auth/login`           | Public    | Sign in and receive a JWT         |
-| `GET`   | `/users/me`             | Signed in | View your profile                 |
-| `PATCH` | `/users/me`             | Signed in | Change your name                  |
-| `GET`   | `/users`                | Admin     | View all user accounts            |
-| `PATCH` | `/users/:userId/status` | Admin     | Activate or deactivate an account |
+| Method   | Path                      | Access    | Purpose                                |
+| -------- | ------------------------- | --------- | -------------------------------------- |
+| `GET`    | `/health`                 | Public    | Check that the API is running          |
+| `POST`   | `/auth/register`          | Public    | Create a customer account              |
+| `POST`   | `/auth/login`             | Public    | Sign in and receive a JWT              |
+| `GET`    | `/users/me`               | Signed in | View your profile                      |
+| `PATCH`  | `/users/me`               | Signed in | Change your name                       |
+| `GET`    | `/users`                  | Admin     | View all user accounts                 |
+| `PATCH`  | `/users/:userId/status`   | Admin     | Activate or deactivate an account      |
+| `GET`    | `/categories`             | Public    | List active categories                 |
+| `GET`    | `/categories/tree`        | Public    | Get the active category tree           |
+| `GET`    | `/categories/:categoryId` | Public    | Get one active category and children   |
+| `POST`   | `/categories`             | Admin     | Create a category                      |
+| `PATCH`  | `/categories/:categoryId` | Admin     | Rename, move, or deactivate a category |
+| `DELETE` | `/categories/:categoryId` | Admin     | Delete a category with no children     |
 
 For protected routes, send the token returned by register or login in the
 `Authorization` header:
@@ -119,13 +150,32 @@ request -> routes -> middleware -> controllers -> services -> User model -> Mong
 - **Controllers** read validated input, call a service, and send the response.
 - **Services** contain the auth and user-management logic and access the model.
 - **The User model** describes stored user fields and hashes passwords.
+- **The Category model** stores each category's parent and ancestor IDs.
 - **The error handler** turns expected and unexpected errors into JSON responses.
+
+Category reads are public and show active categories only. Inactive categories
+and their descendants are hidden. Admins who send a valid Bearer token can also
+see inactive categories. Category names must be unique among siblings. Moving a
+category updates the ancestor paths of its descendants in a transaction;
+deleting a category with children returns `409`. Product-reference checks will
+be added when the Product model is introduced.
+
+Category creation accepts a name and an optional parent ID. To move a category
+to the root, set `parent` to `null`. The API calculates `ancestors`; clients
+must not send that field.
+
+```json
+{
+  "name": "Mobiles",
+  "parent": "507f1f77bcf86cd799439011"
+}
+```
 
 ## Configuration
 
 | Variable         | Required       | Purpose                                        |
 | ---------------- | -------------- | ---------------------------------------------- |
-| `MONGODB_URI`    | Yes            | MongoDB connection string                      |
+| `MONGODB_URI`    | Yes            | MongoDB replica-set connection string          |
 | `JWT_SECRET`     | Yes            | Private signing secret, at least 32 characters |
 | `PORT`           | No             | API port; defaults to `5000`                   |
 | `NODE_ENV`       | No             | `development`, `test`, or `production`         |
@@ -146,13 +196,12 @@ npm.cmd test
 npm.cmd run lint
 ```
 
-Tests use a temporary in-memory MongoDB, so they do not need your development
-database. The first test run may download a MongoDB binary.
+Tests use a temporary in-memory MongoDB replica set, so they do not need your
+development database. The first test run may download a MongoDB binary.
 
 ## Project scope
 
-This project intentionally does not include products, orders, search, or
-pagination. The admin user list is intended for a small learning project, not a
-large production user base. Before exposing an API publicly, add appropriate
-rate limiting, pagination, deployment secrets, HTTPS, monitoring, and database
-backup/recovery procedures.
+This project intentionally does not include products or orders. The admin user
+list is intended for a small learning project, not a large production user base.
+Product-reference checks for category deletion can be added when products are
+introduced.

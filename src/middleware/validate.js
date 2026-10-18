@@ -1,6 +1,5 @@
 const ApiError = require('../utils/ApiError');
 
-// This middleware function is used to validate incoming requests against specified Zod schemas for the request body, parameters, and query. It checks if the request data conforms to the defined schemas and collects any validation errors. If there are validation errors, it throws an ApiError with a 422 status code and details of the validation issues. If validation passes, it attaches the validated data to the request object for further processing in subsequent middleware or route handlers.
 function validate(schemas) {
   return function validateRequest(req, _res, next) {
     const errors = [];

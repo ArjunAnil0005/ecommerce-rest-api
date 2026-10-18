@@ -1,11 +1,13 @@
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { MongoMemoryReplSet } = require('mongodb-memory-server');
 
 let mongo;
 
 // Connect to an in-memory MongoDB instance for testing purposes. This allows tests to run in isolation without affecting the actual database.
 async function connect() {
-  mongo = await MongoMemoryServer.create();
+  mongo = await MongoMemoryReplSet.create({
+    replSet: { count: 1 },
+  });
   await mongoose.connect(mongo.getUri());
 }
 

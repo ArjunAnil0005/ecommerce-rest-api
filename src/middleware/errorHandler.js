@@ -1,24 +1,43 @@
 function errorHandler(error, _req, res, _next) {
-// This middleware function is used to handle errors that occur during the processing of requests. It determines the appropriate HTTP status code based on the error type and constructs a JSON response containing the error message. If the error is a server error (status code 500), it logs the error to the console for debugging purposes.
-  const statusCode =
-    error.statusCode || (error.type === 'entity.parse.failed' ? 400 : 500);
+  const statusCode = getStatusCode(error);
   const response = {
     success: false,
-    message:
-      statusCode === 500
-        ? 'Internal server error'
-        : error.type === 'entity.parse.failed'
-          ? 'Invalid JSON request body'
-          : error.message || 'Invalid JSON request body',
+    message: getErrorMessage(error, statusCode),
   };
 
-  if (error.errors) response.errors = error.errors;
+  if (error.errors) {
+    response.errors = Array.isArray(error.errors)
+      ? error.errors
+      : Object.values(error.errors).map(({ path, message }) => ({
+          field: path,
+          message,
+        }));
+  }
 
   if (statusCode === 500) {
     console.error(error);
   }
 
   res.status(statusCode).json(response);
+}
+
+function getStatusCode(error) {
+  if (error.statusCode) return error.statusCode;
+  if (error.type === 'entity.parse.failed' || error.name === 'CastError') {
+    return 400;
+  }
+  if (error.code === 11000) return 409;
+  if (error.name === 'ValidationError') return 422;
+  return 500;
+}
+
+function getErrorMessage(error, statusCode) {
+  if (error.type === 'entity.parse.failed') return 'Invalid JSON request body';
+  if (error.name === 'CastError') return 'Invalid database identifier';
+  if (error.code === 11000) return 'A record with this value already exists';
+  if (error.name === 'ValidationError') return 'Validation failed';
+  if (statusCode === 500) return 'Internal server error';
+  return error.message || 'Request failed';
 }
 
 module.exports = errorHandler;
