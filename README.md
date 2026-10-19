@@ -119,6 +119,12 @@ All routes use the `/api/v1` prefix.
 | `PATCH`  | `/products/:productId`    | Admin     | Update a product                                  |
 | `DELETE` | `/products/:productId`    | Admin     | Deactivate a product                              |
 | `GET`    | `/admin/products`         | Admin     | List active and inactive products                 |
+| `POST`   | `/orders`                 | Customer  | Place an order and reserve stock                  |
+| `GET`    | `/orders`                 | Signed in | List own orders; admin can filter all orders      |
+| `GET`    | `/orders/:orderId`        | Signed in | Get own order; admin can get any order            |
+| `PATCH`  | `/orders/:orderId/cancel` | Customer  | Cancel own pending order and restore stock        |
+| `PATCH`  | `/orders/:orderId/status` | Admin     | Move an order through valid statuses              |
+| `GET`    | `/ready`                  | Public    | Check database readiness                          |
 
 For protected routes, send the token returned by register or login in the
 `Authorization` header:
@@ -247,13 +253,17 @@ physically removing it, so an order can retain its product reference and
 purchase snapshots. A category with descendants or any product reference,
 including an inactive product, cannot be deleted.
 
-The Order model and validation are foundations only; order placement and HTTP
-order routes are not implemented yet. Order item snapshots retain product,
-name, SKU, unit price in paise, quantity, and calculated line total. Order
-status progresses from `pending` to `confirmed`, `processing`, `shipped`, and
-`delivered`. Cancellation is allowed while `pending` or `confirmed`; delivered
-and cancelled orders are terminal. Day 4 must use `canTransition` before
-changing order status. The future order request schema accepts:
+Order item snapshots retain product, name, SKU, unit price in paise, quantity,
+and calculated line total. Order status progresses from `pending` to
+`confirmed`, `processing`, `shipped`, and `delivered`. A customer can cancel
+their own pending order only; an admin can also cancel a processing order.
+Delivered and cancelled orders are terminal.
+
+## Day 4: order placement and stock safety
+
+Customers place orders with product IDs and quantities only. The server reads
+the current active product price and calculates totals; the request does not
+accept client prices:
 
 ```json
 {
@@ -265,3 +275,29 @@ changing order status. The future order request schema accepts:
   ]
 }
 ```
+
+Duplicate product IDs in one cart are combined, up to 100 units per product.
+Stock is reserved with a conditional database update inside the same MongoDB
+transaction that creates the order. If any item is unavailable, the transaction
+rolls back and stock remains unchanged. Cancelling restores stock in a
+transaction and only changes an order from `pending` for customer cancellation,
+so simultaneous cancellations restore inventory once. Customers see only their
+own orders; requesting another customer's order returns `404`. Admins can view
+all orders and filter with `?status=pending&page=1&limit=20`.
+
+Admin status changes use the transition rules:
+
+| Current status | Allowed next status       |
+| -------------- | ------------------------- |
+| `pending`      | `confirmed`, `cancelled`  |
+| `confirmed`    | `processing`, `cancelled` |
+| `processing`   | `shipped`, `cancelled`    |
+| `shipped`      | `delivered`               |
+| `delivered`    | None                      |
+| `cancelled`    | None                      |
+
+Login attempts are rate-limited per client IP, request logs contain a generated
+request ID and omit query strings, request bodies and headers, JWT verification
+accepts only `HS256`, and `/api/v1/ready` returns `503` when MongoDB is not
+connected. The server closes its HTTP listener and disconnects from MongoDB on
+`SIGINT` and `SIGTERM`.

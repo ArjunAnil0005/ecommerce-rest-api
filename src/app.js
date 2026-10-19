@@ -5,11 +5,13 @@ const env = require('./config/env');
 const apiRoutes = require('./routes');
 const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
+const requestLogger = require('./middleware/requestLogger');
 
 const app = express();
 
 app.disable('x-powered-by');
 app.use(helmet());
+app.use(requestLogger);
 app.use(
   cors({
     origin: env.CORS_ORIGINS.length > 0 ? env.CORS_ORIGINS : false,

@@ -1,7 +1,9 @@
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
 const app = require('../src/app');
 const User = require('../src/models/User');
 const db = require('./helpers/db');
+const env = require('../src/config/env');
 
 let admin;
 let adminToken;
@@ -128,6 +130,17 @@ describe('protected routes', () => {
     expect(invalid.status).toBe(401);
   });
 
+  test('rejects tokens signed with an unexpected algorithm', async () => {
+    const token = jwt.sign({ id: admin.id }, env.JWT_SECRET, {
+      algorithm: 'HS512',
+    });
+    const response = await request(app)
+      .get('/api/v1/users/me')
+      .set('Authorization', createAuthorizationHeader(token));
+
+    expect(response.status).toBe(401);
+  });
+
   test('revokes an existing token when its user is deactivated', async () => {
     const customer = await request(app).post('/api/v1/auth/register').send({
       name: 'Customer',
@@ -225,4 +238,22 @@ describe('request handling', () => {
     expect(response.body.data[0].email).toBe(admin.email);
     expect(response.body.data[0].password).toBeUndefined();
   });
+});
+
+test('rate-limits repeated failed login attempts', async () => {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const response = await request(app).post('/api/v1/auth/login').send({
+      email: admin.email,
+      password: 'wrong-password-123',
+    });
+    expect(response.status).toBe(401);
+  }
+
+  const limited = await request(app).post('/api/v1/auth/login').send({
+    email: admin.email,
+    password: 'wrong-password-123',
+  });
+
+  expect(limited.status).toBe(429);
+  expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
 });

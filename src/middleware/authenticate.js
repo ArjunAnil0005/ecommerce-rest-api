@@ -14,7 +14,7 @@ const authenticate = asyncHandler(async (req, _res, next) => {
 
   let payload;
   try {
-    payload = jwt.verify(token, env.JWT_SECRET);
+    payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
   } catch (_error) {
     throw new ApiError(401, 'Invalid or expired token');
   }

@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { ORDER_STATUSES } = require('../utils/orderStatus');
 
 const orderItemSchema = z
   .object({
@@ -13,4 +14,23 @@ const createOrderSchema = z
   })
   .strict();
 
-module.exports = { createOrderSchema };
+const orderIdParamsSchema = z.object({
+  orderId: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid order id'),
+});
+
+const orderListQuerySchema = z.object({
+  status: z.enum(ORDER_STATUSES).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const updateOrderStatusSchema = z
+  .object({ status: z.enum(ORDER_STATUSES) })
+  .strict();
+
+module.exports = {
+  createOrderSchema,
+  orderIdParamsSchema,
+  orderListQuerySchema,
+  updateOrderStatusSchema,
+};

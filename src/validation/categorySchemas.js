@@ -15,7 +15,9 @@ const updateCategorySchema = z
     parent: categoryId.nullable().optional(),
   })
   .strict()
-  .refine((updates) => updates.name !== undefined || updates.parent !== undefined);
+  .refine(
+    (updates) => updates.name !== undefined || updates.parent !== undefined,
+  );
 
 const categoryIdParamsSchema = z.object({ categoryId });
 

@@ -10,7 +10,7 @@ const ORDER_STATUSES = [
 const ALLOWED_TRANSITIONS = {
   pending: ['confirmed', 'cancelled'],
   confirmed: ['processing', 'cancelled'],
-  processing: ['shipped'],
+  processing: ['shipped', 'cancelled'],
   shipped: ['delivered'],
   delivered: [],
   cancelled: [],

@@ -21,7 +21,6 @@ describe('order status transitions', () => {
 
   test.each([
     ['pending', 'shipped'],
-    ['processing', 'cancelled'],
     ['shipped', 'cancelled'],
     ['delivered', 'cancelled'],
     ['delivered', 'pending'],
