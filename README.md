@@ -100,19 +100,25 @@ Public registration always creates a customer.
 
 All routes use the `/api/v1` prefix.
 
-| Method  | Path                      | Access    | Purpose                           |
-| ------- | ------------------------- | --------- | --------------------------------- |
-| `GET`   | `/health`                 | Public    | Check that the API is running     |
-| `POST`  | `/auth/register`          | Public    | Create a customer account         |
-| `POST`  | `/auth/login`             | Public    | Sign in and receive a JWT         |
-| `GET`   | `/users/me`               | Signed in | View your profile                 |
-| `PATCH` | `/users/me`               | Signed in | Change your name                  |
-| `GET`   | `/users`                  | Admin     | View all user accounts            |
-| `PATCH` | `/users/:userId/status`   | Admin     | Activate or deactivate an account |
-| `GET`   | `/categories/tree`        | Public    | Get the category tree             |
-| `POST`  | `/categories`             | Admin     | Create a category                 |
-| `PATCH` | `/categories/:categoryId` | Admin     | Rename and/or move a category     |
-| `DELETE`| `/categories/:categoryId` | Admin     | Delete a category without descendants |
+| Method   | Path                      | Access    | Purpose                                           |
+| -------- | ------------------------- | --------- | ------------------------------------------------- |
+| `GET`    | `/health`                 | Public    | Check that the API is running                     |
+| `POST`   | `/auth/register`          | Public    | Create a customer account                         |
+| `POST`   | `/auth/login`             | Public    | Sign in and receive a JWT                         |
+| `GET`    | `/users/me`               | Signed in | View your profile                                 |
+| `PATCH`  | `/users/me`               | Signed in | Change your name                                  |
+| `GET`    | `/users`                  | Admin     | View all user accounts                            |
+| `PATCH`  | `/users/:userId/status`   | Admin     | Activate or deactivate an account                 |
+| `GET`    | `/categories/tree`        | Public    | Get the category tree                             |
+| `POST`   | `/categories`             | Admin     | Create a category                                 |
+| `PATCH`  | `/categories/:categoryId` | Admin     | Rename and/or move a category                     |
+| `DELETE` | `/categories/:categoryId` | Admin     | Delete a category without descendants or products |
+| `GET`    | `/products`               | Public    | List and filter active products                   |
+| `GET`    | `/products/:productId`    | Public    | Get one active product                            |
+| `POST`   | `/products`               | Admin     | Create a product                                  |
+| `PATCH`  | `/products/:productId`    | Admin     | Update a product                                  |
+| `DELETE` | `/products/:productId`    | Admin     | Deactivate a product                              |
+| `GET`    | `/admin/products`         | Admin     | List active and inactive products                 |
 
 For protected routes, send the token returned by register or login in the
 `Authorization` header:
@@ -198,9 +204,64 @@ npm.cmd run lint
 Tests use a temporary in-memory MongoDB replica set, so they do not need your
 development database. The first test run may download a MongoDB binary.
 
-## Project scope
+## Day 3: products and order foundations
 
-This project intentionally does not include products or orders. The admin user
-list is intended for a small learning project, not a large production user base.
-Product-reference checks for category deletion can be added when products are
-introduced.
+Product prices are stored as integer paise in `pricePaise`,
+`salePricePaise`, and `effectivePricePaise`. For example, ₹199.99 is `19999`.
+Listing filters `minPrice` and `maxPrice` also take paise; `sort=price` sorts
+by effective selling price. A product's effective price is its sale price when
+provided, otherwise its regular price. Search matches product name or SKU;
+category filtering includes products assigned to that category and any of its
+descendants. Public listing and product detail only return active products;
+the admin listing includes inactive products.
+
+Create a product as an admin:
+
+```json
+{
+  "name": "Wireless Headphones",
+  "sku": "AUDIO-001",
+  "description": "Bluetooth headphones",
+  "pricePaise": 125000,
+  "salePricePaise": 99900,
+  "stock": 10,
+  "category": "<categoryId>"
+}
+```
+
+The effective price is calculated by the API and is not accepted from clients.
+To list products in a category subtree with a price range, search and
+pagination, use:
+
+```text
+GET /api/v1/products?category=<categoryId>&minPrice=50000&maxPrice=200000&sort=price&page=1&limit=10
+```
+
+Search and sort options are `search=<name-or-sku>` and `sort=price`,
+`sort=-price`, `sort=name`, `sort=-name`, `sort=newest`, or `sort=oldest`.
+Price range values are paise (for example, `50000` is INR 500). Page size is
+between 1 and 100.
+
+`DELETE /api/v1/products/:productId` marks the product inactive instead of
+physically removing it, so an order can retain its product reference and
+purchase snapshots. A category with descendants or any product reference,
+including an inactive product, cannot be deleted.
+
+The Order model and validation are foundations only; order placement and HTTP
+order routes are not implemented yet. Order item snapshots retain product,
+name, SKU, unit price in paise, quantity, and calculated line total. Order
+status progresses from `pending` to `confirmed`, `processing`, `shipped`, and
+`delivered`. Cancellation is allowed while `pending` or `confirmed`; delivered
+and cancelled orders are terminal. Day 4 must use `canTransition` before
+changing order status. The future order request schema accepts:
+
+```json
+{
+  "items": [
+    {
+      "productId": "<productId>",
+      "quantity": 2
+    }
+  ]
+}
+```

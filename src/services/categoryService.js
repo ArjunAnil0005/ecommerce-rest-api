@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Category = require('../models/Category');
+const Product = require('../models/Product');
 const ApiError = require('../utils/ApiError');
 const buildCategoryTree = require('../utils/buildCategoryTree');
 
@@ -142,6 +143,9 @@ async function deleteCategory(categoryId) {
 
   if (await Category.exists({ ancestors: category._id })) {
     throw new ApiError(409, 'Cannot delete a category that has descendants');
+  }
+  if (await Product.exists({ category: category._id })) {
+    throw new ApiError(409, 'Cannot delete a category that has products');
   }
 
   await Category.deleteOne({ _id: category._id });

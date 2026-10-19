@@ -15,6 +15,7 @@ const categorySchema = new mongoose.Schema({
     default: null,
   },
   ancestors: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
+  isActive: { type: Boolean, default: true },
 });
 
 categorySchema.virtual('slug').get(function getSlug() {

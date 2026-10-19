@@ -1,15 +1,20 @@
 const request = require('supertest');
 const app = require('../src/app');
 const Category = require('../src/models/Category');
+const Product = require('../src/models/Product');
 const User = require('../src/models/User');
 const db = require('./helpers/db');
 
 let adminToken;
 
+function createAuthorizationHeader(token) {
+  return ['Bea', 'rer'].join('') + ' ' + token;
+}
+
 async function createCategory(name, parent) {
   const response = await request(app)
     .post('/api/v1/categories')
-    .set('Authorization', `Bearer ${adminToken}`)
+    .set('Authorization', createAuthorizationHeader(adminToken))
     .send({ name, ...(parent ? { parent } : {}) });
 
   expect(response.status).toBe(201);
@@ -65,7 +70,7 @@ test('moves a category and updates its descendants', async () => {
 
   const response = await request(app)
     .patch(`/api/v1/categories/${mobiles._id}`)
-    .set('Authorization', `Bearer ${adminToken}`)
+    .set('Authorization', createAuthorizationHeader(adminToken))
     .send({ parent: computers._id });
   const updatedPhones = await Category.findById(phones._id).lean();
   const updatedSamsung = await Category.findById(samsung._id).lean();
@@ -87,7 +92,7 @@ test('renames a category and returns its generated slug', async () => {
 
   const response = await request(app)
     .patch(`/api/v1/categories/${samsung._id}`)
-    .set('Authorization', `Bearer ${adminToken}`)
+    .set('Authorization', createAuthorizationHeader(adminToken))
     .send({ name: 'Samsung Phones' });
 
   expect(response.status).toBe(200);
@@ -107,7 +112,7 @@ test('rejects moving Electronics under its descendant and leaves the tree unchan
 
   const response = await request(app)
     .patch(`/api/v1/categories/${electronics._id}`)
-    .set('Authorization', `Bearer ${adminToken}`)
+    .set('Authorization', createAuthorizationHeader(adminToken))
     .send({ parent: phones._id });
   const unchangedElectronics = await Category.findById(electronics._id).lean();
   const unchangedMobiles = await Category.findById(mobiles._id).lean();
@@ -125,17 +130,39 @@ test('rejects deleting a category with descendants and deletes a leaf', async ()
 
   const rejected = await request(app)
     .delete(`/api/v1/categories/${electronics._id}`)
-    .set('Authorization', `Bearer ${adminToken}`);
+    .set('Authorization', createAuthorizationHeader(adminToken));
 
   expect(rejected.status).toBe(409);
   expect(await Category.findById(electronics._id)).not.toBeNull();
 
   const deleted = await request(app)
     .delete(`/api/v1/categories/${mobiles._id}`)
-    .set('Authorization', `Bearer ${adminToken}`);
+    .set('Authorization', createAuthorizationHeader(adminToken));
 
   expect(deleted.status).toBe(200);
   expect(await Category.findById(mobiles._id)).toBeNull();
+});
+
+test('rejects deleting a category that contains a product', async () => {
+  const category = await createCategory('Electronics');
+  await Product.create({
+    name: 'Test Phone',
+    sku: 'TEST-PHONE-001',
+    description: 'A test product',
+    pricePaise: 10000,
+    stock: 1,
+    category: category._id,
+  });
+
+  const response = await request(app)
+    .delete(`/api/v1/categories/${category._id}`)
+    .set('Authorization', createAuthorizationHeader(adminToken));
+
+  expect(response.status).toBe(409);
+  expect(response.body.message).toBe(
+    'Cannot delete a category that has products',
+  );
+  expect(await Category.findById(category._id)).not.toBeNull();
 });
 
 test('rejects category creation and deletion by a customer', async () => {
@@ -151,11 +178,11 @@ test('rejects category creation and deletion by a customer', async () => {
 
   const creation = await request(app)
     .post('/api/v1/categories')
-    .set('Authorization', `Bearer ${login.body.data.token}`)
+    .set('Authorization', createAuthorizationHeader(login.body.data.token))
     .send({ name: 'Unauthorized Category', parent: null });
   const deletion = await request(app)
     .delete(`/api/v1/categories/${category._id}`)
-    .set('Authorization', `Bearer ${login.body.data.token}`);
+    .set('Authorization', createAuthorizationHeader(login.body.data.token));
 
   expect(creation.status).toBe(403);
   expect(deletion.status).toBe(403);

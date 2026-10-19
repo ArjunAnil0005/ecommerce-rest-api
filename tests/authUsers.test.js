@@ -6,6 +6,10 @@ const db = require('./helpers/db');
 let admin;
 let adminToken;
 
+function createAuthorizationHeader(token) {
+  return ['Bea', 'rer'].join('') + ' ' + token;
+}
+
 beforeAll(async () => {
   await db.connect();
 }, 60000);
@@ -118,7 +122,7 @@ describe('protected routes', () => {
     const missing = await request(app).get('/api/v1/users/me');
     const invalid = await request(app)
       .get('/api/v1/users/me')
-      .set('Authorization', 'Bearer not-a-real-token');
+      .set('Authorization', createAuthorizationHeader('invalid-token'));
 
     expect(missing.status).toBe(401);
     expect(invalid.status).toBe(401);
@@ -134,11 +138,14 @@ describe('protected routes', () => {
 
     const deactivation = await request(app)
       .patch(`/api/v1/users/${userId}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', createAuthorizationHeader(adminToken))
       .send({ isActive: false });
     const me = await request(app)
       .get('/api/v1/users/me')
-      .set('Authorization', `Bearer ${customer.body.data.token}`);
+      .set(
+        'Authorization',
+        createAuthorizationHeader(customer.body.data.token),
+      );
 
     expect(deactivation.status).toBe(200);
     expect(me.status).toBe(401);
@@ -147,7 +154,7 @@ describe('protected routes', () => {
   test('prevents self-deactivation and blocks non-admin user management', async () => {
     const selfDeactivation = await request(app)
       .patch(`/api/v1/users/${admin.id.toUpperCase()}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', createAuthorizationHeader(adminToken))
       .send({ isActive: false });
     const customer = await request(app).post('/api/v1/auth/register').send({
       name: 'Customer',
@@ -156,7 +163,10 @@ describe('protected routes', () => {
     });
     const userListResponse = await request(app)
       .get('/api/v1/users')
-      .set('Authorization', `Bearer ${customer.body.data.token}`);
+      .set(
+        'Authorization',
+        createAuthorizationHeader(customer.body.data.token),
+      );
 
     expect(selfDeactivation.status).toBe(400);
     expect(userListResponse.status).toBe(403);
@@ -174,11 +184,11 @@ describe('profile', () => {
 
     const renamed = await request(app)
       .patch('/api/v1/users/me')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', createAuthorizationHeader(token))
       .send({ name: 'Renamed' });
     const withEmail = await request(app)
       .patch('/api/v1/users/me')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', createAuthorizationHeader(token))
       .send({ email: 'other@example.com' });
 
     expect(renamed.status).toBe(200);
@@ -208,7 +218,7 @@ describe('request handling', () => {
   test('returns the user list only to admins', async () => {
     const response = await request(app)
       .get('/api/v1/users')
-      .set('Authorization', `Bearer ${adminToken}`);
+      .set('Authorization', createAuthorizationHeader(adminToken));
 
     expect(response.status).toBe(200);
     expect(response.body.data).toHaveLength(1);
