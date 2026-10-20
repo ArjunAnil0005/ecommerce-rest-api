@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../src/app');
 const errorHandler = require('../src/middleware/errorHandler');
+const YAML = require('yaml');
 
 function getErrorResponse(error) {
   const response = {
@@ -31,6 +32,31 @@ describe('application basics', () => {
 
     expect(response.status).toBe(422);
     expect(response.body.message).toBe('Validation failed');
+  });
+
+  test('serves Swagger UI and a valid OpenAPI document', async () => {
+    const ui = await request(app).get('/api-docs/');
+    const specification = await request(app).get('/api-docs/openapi.yaml');
+    const document = YAML.parse(specification.text);
+
+    expect(ui.status).toBe(200);
+    expect(ui.text).toContain('Swagger UI');
+    expect(specification.status).toBe(200);
+    expect(document.openapi).toBe('3.0.3');
+    expect(document.paths['/orders'].post).toBeDefined();
+    expect(document.paths['/products'].get).toBeDefined();
+  });
+
+  test('rejects malformed ObjectIds before querying the database', async () => {
+    const response = await request(app).get(
+      '/api/v1/products/not-a-valid-object-id',
+    );
+
+    expect(response.status).toBe(422);
+    expect(response.body).toMatchObject({
+      success: false,
+      message: 'Validation failed',
+    });
   });
 
   test('malformed JSON returns a client error in the shared response format', async () => {

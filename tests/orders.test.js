@@ -287,6 +287,37 @@ describe('order lifecycle and access', () => {
     expect(await Order.countDocuments({ status: 'cancelled' })).toBe(1);
   });
 
+  test('concurrent admin cancellations restore stock only once', async () => {
+    const { product, order } = await createCustomerOrder(
+      'ADMIN-CANCEL-RACE-001',
+    );
+    const statusUrl = `/api/v1/orders/${order._id}/status`;
+
+    await request(app)
+      .patch(statusUrl)
+      .set('Authorization', authorization(adminToken))
+      .send({ status: 'confirmed' });
+    await request(app)
+      .patch(statusUrl)
+      .set('Authorization', authorization(adminToken))
+      .send({ status: 'processing' });
+
+    const responses = await Promise.all([
+      request(app)
+        .patch(statusUrl)
+        .set('Authorization', authorization(adminToken))
+        .send({ status: 'cancelled' }),
+      request(app)
+        .patch(statusUrl)
+        .set('Authorization', authorization(adminToken))
+        .send({ status: 'cancelled' }),
+    ]);
+
+    expect(responses.map(({ status }) => status).sort()).toEqual([200, 409]);
+    expect((await Product.findById(product.id)).stock).toBe(5);
+    expect(await Order.countDocuments({ status: 'cancelled' })).toBe(1);
+  });
+
   test('admin can progress valid statuses and rejects invalid transitions', async () => {
     const { order } = await createCustomerOrder('STATUS-001');
     const url = `/api/v1/orders/${order._id}/status`;

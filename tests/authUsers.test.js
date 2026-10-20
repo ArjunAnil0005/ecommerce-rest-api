@@ -81,6 +81,31 @@ describe('authentication', () => {
     expect(badEmail.status).toBe(422);
   });
 
+  test('never returns password fields from registration, login, or profile routes', async () => {
+    const registration = await request(app).post('/api/v1/auth/register').send({
+      name: 'No Password Response',
+      email: 'no-password@example.com',
+      password: 'customer-password-123',
+    });
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'no-password@example.com',
+      password: 'customer-password-123',
+    });
+    const profile = await request(app)
+      .get('/api/v1/users/me')
+      .set('Authorization', createAuthorizationHeader(login.body.data.token));
+
+    expect(registration.status).toBe(201);
+    expect(login.status).toBe(200);
+    expect(profile.status).toBe(200);
+    for (const response of [registration, login, profile]) {
+      expect(response.body.data.user).not.toHaveProperty('password');
+      expect(JSON.stringify(response.body)).not.toContain(
+        'customer-password-123',
+      );
+    }
+  });
+
   test('rejects passwords longer than bcrypt can safely use', async () => {
     const response = await request(app)
       .post('/api/v1/auth/register')

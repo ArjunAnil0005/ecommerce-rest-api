@@ -10,6 +10,42 @@ view users and activate or deactivate accounts.
 - Node.js 24 or later
 - MongoDB Community Server installed on Windows
 
+## Quick start with Docker
+
+Docker Compose starts the API and MongoDB together. MongoDB runs as a
+single-node replica set, which is required for category moves and order
+transactions.
+
+1. Copy `.env.example` to `.env`, then set a private JWT secret and unique
+   passwords. Do not use the example values.
+
+   ```powershell
+   Copy-Item .env.example .env
+   notepad .env
+   ```
+
+2. Build and start both services:
+
+   ```powershell
+   docker compose up --build
+   ```
+
+3. In a second terminal, seed an admin and demo data:
+
+   ```powershell
+   docker compose exec api npm run seed:admin
+   docker compose exec api npm run seed:demo
+   ```
+
+4. Open `http://localhost:5000/api-docs` or import the Postman collection from
+   `postman/`.
+
+Compose waits for MongoDB's health check to confirm the replica set is primary
+before starting the API. The API uses the Compose hostname `mongo`; the local
+MongoDB URI in `.env` is overridden only inside the container. Use
+`docker compose down` to stop the services. Data remains in the `mongo-data`
+volume; `docker compose down -v` removes that database data.
+
 ## Start on Windows
 
 Install MongoDB Community Server and make sure its Windows service is running.
@@ -51,16 +87,19 @@ mongosh --eval "rs.initiate({_id:'rs0',members:[{_id:0,host:'127.0.0.1:27017'}]}
 If MongoDB says the replica set is already initialized, check it with
 `mongosh --eval "rs.status()"` and do not initialize it again.
 
-Then, from the project folder, install the API dependencies and open `.env`.
+Then, from the project folder, install the API dependencies and create `.env`
+from `.env.example`.
 Use `npm.cmd` if PowerShell blocks the `npm.ps1` script because of its execution
 policy.
 
 ```powershell
 npm.cmd install
+Copy-Item .env.example .env
 notepad .env
 ```
 
-Make sure `.env` contains the replica-set address and a private JWT secret:
+Make sure `.env` contains the replica-set address and a private JWT secret.
+Replace the example secret and passwords with unique values before running:
 
 ```env
 MONGODB_URI=mongodb://127.0.0.1:27017/ecommerce?replicaSet=rs0
@@ -95,6 +134,21 @@ npm.cmd run seed:admin
 
 The seed script creates a new admin and refuses to promote an existing account.
 Public registration always creates a customer.
+
+## Seed demo data
+
+Set `DEMO_CUSTOMER_NAME`, `DEMO_CUSTOMER_EMAIL`, and
+`DEMO_CUSTOMER_PASSWORD` in `.env`, then run:
+
+```powershell
+npm.cmd run seed:demo
+```
+
+The script creates `Electronics -> Mobiles` and `Electronics -> Accessories`,
+two sample products, and one customer. It is safe to run again: existing
+categories, products, and customers are reused rather than duplicated or
+overwritten. If the configured demo email belongs to an admin, the script
+stops instead of changing that account.
 
 ## API
 
@@ -184,31 +238,95 @@ moving `Mobiles` elsewhere, `Electronics` no longer contains those descendants.
 
 ## Configuration
 
-| Variable         | Required       | Purpose                                        |
-| ---------------- | -------------- | ---------------------------------------------- |
-| `MONGODB_URI`    | Yes            | MongoDB replica-set connection string          |
-| `JWT_SECRET`     | Yes            | Private signing secret, at least 32 characters |
-| `PORT`           | No             | API port; defaults to `5000`                   |
-| `NODE_ENV`       | No             | `development`, `test`, or `production`         |
-| `JWT_EXPIRES_IN` | No             | Token lifetime; defaults to `1d`               |
-| `BCRYPT_ROUNDS`  | No             | Password hashing cost; defaults to `12`        |
-| `CORS_ORIGINS`   | No             | Comma-separated allowed browser origins        |
-| `ADMIN_NAME`     | For admin seed | Name for the initial admin                     |
-| `ADMIN_EMAIL`    | For admin seed | Login email for the initial admin              |
-| `ADMIN_PASSWORD` | For admin seed | Admin password, at least 12 characters         |
+| Variable                 | Required       | Purpose                                        |
+| ------------------------ | -------------- | ---------------------------------------------- |
+| `MONGODB_URI`            | Yes            | MongoDB replica-set connection string          |
+| `JWT_SECRET`             | Yes            | Private signing secret, at least 32 characters |
+| `PORT`                   | No             | API port; defaults to `5000`                   |
+| `NODE_ENV`               | No             | `development`, `test`, or `production`         |
+| `JWT_EXPIRES_IN`         | No             | Token lifetime; defaults to `1d`               |
+| `BCRYPT_ROUNDS`          | No             | Password hashing cost; defaults to `12`        |
+| `CORS_ORIGINS`           | No             | Comma-separated allowed browser origins        |
+| `ADMIN_NAME`             | For admin seed | Name for the initial admin                     |
+| `ADMIN_EMAIL`            | For admin seed | Login email for the initial admin              |
+| `ADMIN_PASSWORD`         | For admin seed | Admin password, at least 12 characters         |
+| `DEMO_CUSTOMER_NAME`     | For demo seed  | Name for the demo customer                     |
+| `DEMO_CUSTOMER_EMAIL`    | For demo seed  | Login email for the demo customer              |
+| `DEMO_CUSTOMER_PASSWORD` | For demo seed  | Demo customer password, at least 12 characters |
 
 If startup reports missing environment variables, check that `.env` contains
 `MONGODB_URI` and a real `JWT_SECRET`.
 
+## API documentation and Postman
+
+- Swagger UI: `http://localhost:5000/api-docs`
+- OpenAPI YAML: [`docs/openapi.yaml`](./docs/openapi.yaml)
+- Postman collection: [`postman/ecommerce-rest-api.postman_collection.json`](./postman/ecommerce-rest-api.postman_collection.json)
+- Postman environment: [`postman/ecommerce-rest-api.postman_environment.json`](./postman/ecommerce-rest-api.postman_environment.json)
+
+Import both Postman files, set `adminEmail` and `adminPassword` to the seeded
+admin credentials, then run the collection in order. It registers a customer,
+creates a category tree and product, checks descendant filtering, places an
+order, cancels it, and exercises the admin status/cancellation workflow.
+
 ## Tests and lint
 
 ```powershell
-npm.cmd test
+npm.cmd test -- --runInBand
 npm.cmd run lint
+npm.cmd run format:check
 ```
 
 Tests use a temporary in-memory MongoDB replica set, so they do not need your
 development database. The first test run may download a MongoDB binary.
+
+## Project structure and design decisions
+
+```text
+src/
+  config/       Environment validation and MongoDB connection
+  controllers/  HTTP request/response handlers
+  middleware/   Authentication, validation, errors, and request logging
+  models/       Mongoose schemas and indexes
+  routes/       URL-to-controller mappings
+  scripts/      Admin and demo data seed commands
+  services/     Business rules and database operations
+  utils/        Shared errors, money, category-tree, and order-status helpers
+  validation/   Zod request schemas
+docs/           OpenAPI specification
+postman/        Collection and local environment
+tests/          Unit and MongoDB integration tests
+```
+
+Requests flow through routes, middleware, controllers, services, and models.
+Validation, authorization, and business rules stay close to their respective
+layers so a learner can follow each request without a framework-specific
+abstraction layer.
+
+- **Category hierarchy:** each category stores a `parent` reference and an
+  ordered `ancestors` list. This makes descendant filtering straightforward;
+  moving a subtree updates its descendants in a transaction.
+- **Money:** product prices and order totals use integer paise, avoiding
+  floating-point currency arithmetic.
+- **Orders:** the server reads current product prices and stores product name,
+  SKU, and price snapshots. Conditional stock updates and order writes share a
+  MongoDB transaction, so an unavailable item rolls back the whole order.
+- **Cancellation:** status changes and stock restoration are transactional.
+  Conditional status updates prevent simultaneous cancellation requests from
+  restoring stock twice.
+- **API errors:** validation errors return `422`, missing/invalid authentication
+  returns `401`, role failures return `403`, conflicts return `409`, and
+  unexpected server errors do not expose internal details.
+
+## Known limitations
+
+- The login limiter uses process memory. It is appropriate for this
+  single-instance learning application; multiple API instances need a shared
+  rate-limit store.
+- The Compose MongoDB service is for local development and has no database
+  authentication or TLS. Do not expose it to an untrusted network.
+- The project does not implement payments, shipping integrations, or
+  distributed production deployment.
 
 ## Day 3: products and order foundations
 
@@ -301,3 +419,26 @@ request ID and omit query strings, request bodies and headers, JWT verification
 accepts only `HS256`, and `/api/v1/ready` returns `503` when MongoDB is not
 connected. The server closes its HTTP listener and disconnects from MongoDB on
 `SIGINT` and `SIGTERM`.
+
+## Customer order walkthrough
+
+After creating an active product as an admin, register or log in as a customer
+and send its ID and quantity. The server uses the current effective price;
+never include a client-supplied price.
+
+```powershell
+$token = "<customer-jwt>"
+$body = '{"items":[{"productId":"<product-id>","quantity":1}]}'
+Invoke-RestMethod `
+  -Uri "http://localhost:5000/api/v1/orders" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -Body $body
+```
+
+A successful response contains a `pending` order and its price snapshot.
+Available stock is reduced in the same transaction. If an item is out of stock,
+the request returns `409` and any earlier stock reservations are rolled back.
+Cancel the pending order with `PATCH /api/v1/orders/<order-id>/cancel` as the
+same customer; stock is restored exactly once.

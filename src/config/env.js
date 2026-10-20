@@ -40,6 +40,9 @@ const envSchema = z.object({
   ADMIN_NAME: emptyToUndefined(z.string().trim().min(1)),
   ADMIN_EMAIL: emptyToUndefined(z.string().email()),
   ADMIN_PASSWORD: emptyToUndefined(z.string().min(12)),
+  DEMO_CUSTOMER_NAME: emptyToUndefined(z.string().trim().min(1)),
+  DEMO_CUSTOMER_EMAIL: emptyToUndefined(z.string().email()),
+  DEMO_CUSTOMER_PASSWORD: emptyToUndefined(z.string().min(12)),
 });
 
 const result = envSchema.safeParse(process.env);

@@ -34,6 +34,8 @@ async function placeOrder(customerId, requestedItems) {
   let createdOrder;
 
   try {
+    // Keep every stock decrement and the order insert together. If any item
+    // fails, MongoDB rolls back all earlier decrements in this transaction.
     await session.withTransaction(async () => {
       const snapshots = [];
 
@@ -42,6 +44,7 @@ async function placeOrder(customerId, requestedItems) {
           {
             _id: productId,
             status: 'active',
+            // This condition makes the decrement safe when requests race.
             stock: { $gte: quantity },
           },
           { $inc: { stock: -quantity } },
@@ -112,6 +115,8 @@ async function cancelOrder(orderId, customerId) {
   try {
     let cancelledOrder;
     await session.withTransaction(async () => {
+      // Only one concurrent request can change a pending order to cancelled.
+      // Stock is restored below in the same transaction.
       cancelledOrder = await Order.findOneAndUpdate(
         { _id: orderId, customer: customerId, status: 'pending' },
         {
@@ -160,6 +165,7 @@ async function updateOrderStatus(orderId, nextStatus) {
       updatedOrder = await order.save({ session });
 
       if (nextStatus === 'cancelled') {
+        // The status change is rolled back too if any stock restore fails.
         await restoreStock(order.items, session);
       }
     });
@@ -170,6 +176,8 @@ async function updateOrderStatus(orderId, nextStatus) {
 }
 
 async function restoreStock(items, session) {
+  // Use the order's product references and quantities; product prices or names
+  // may have changed since the order was placed.
   for (const item of items) {
     const result = await Product.updateOne(
       { _id: item.product },

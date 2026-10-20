@@ -10,6 +10,7 @@ function createLoginRateLimit({
   function loginRateLimit(req, res, next) {
     const now = Date.now();
     requestCount += 1;
+    // Expired IP records are removed periodically so the map stays bounded.
     if (requestCount % 100 === 0) {
       for (const [ip, attempt] of attemptsByIp) {
         if (now - attempt.startedAt >= windowMs) attemptsByIp.delete(ip);

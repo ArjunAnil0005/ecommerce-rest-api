@@ -100,6 +100,8 @@ async function updateCategory(categoryId, updates) {
       }).session(session);
 
       for (const descendant of descendants) {
+        // Replace the old path to this category with the new one, keeping each
+        // descendant's path below it unchanged.
         const categoryPosition = descendant.ancestors.findIndex((ancestorId) =>
           ancestorId.equals(category._id),
         );

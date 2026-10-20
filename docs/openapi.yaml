@@ -1,0 +1,882 @@
+openapi: 3.0.3
+info:
+  title: E-commerce REST API
+  version: 1.0.0
+  description: |
+    Learning e-commerce API with JWT authentication, category trees, product
+    filtering, transactional orders, and stock-safe cancellation.
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local development
+tags:
+  - name: Health
+  - name: Authentication
+  - name: Users
+  - name: Categories
+  - name: Products
+  - name: Orders
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Check that the API is responding
+      responses:
+        '200':
+          description: API is running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /ready:
+    get:
+      tags: [Health]
+      summary: Check database readiness
+      responses:
+        '200':
+          description: MongoDB is ready
+        '503':
+          description: MongoDB is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a customer account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              name: Sam Example
+              email: sam@example.com
+              password: a-unique-password
+      responses:
+        '201':
+          description: Customer created and signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              example:
+                success: true
+                data:
+                  user:
+                    id: 507f1f77bcf86cd799439011
+                    name: Sam Example
+                    email: sam@example.com
+                    role: customer
+                    isActive: true
+                  token: eyJhbGciOiJIUzI1NiJ9.example.signature
+        '409':
+          description: Email is already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Sign in and receive a JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              example:
+                success: true
+                data:
+                  user:
+                    id: 507f1f77bcf86cd799439011
+                    name: Sam Example
+                    email: sam@example.com
+                    role: customer
+                    isActive: true
+                  token: eyJhbGciOiJIUzI1NiJ9.example.signature
+        '401':
+          description: Invalid credentials or inactive account
+          content:
+            application/json:
+              example:
+                success: false
+                message: Invalid email or password
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          description: Too many login attempts
+  /users/me:
+    get:
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      summary: Get the signed-in user's profile
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      summary: Update the signed-in user's name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+      responses:
+        '200':
+          description: Updated profile
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /users:
+    get:
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      summary: List user accounts (admin only)
+      responses:
+        '200':
+          description: Users, without password hashes
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /users/{userId}/status:
+    patch:
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      summary: Activate or deactivate a user (admin only)
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [isActive]
+              properties:
+                isActive:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated user, without password hash
+        '400':
+          description: Admin cannot deactivate their own account
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /categories/tree:
+    get:
+      tags: [Categories]
+      summary: Get the full category tree
+      responses:
+        '200':
+          description: Root categories with nested children
+  /categories:
+    post:
+      tags: [Categories]
+      security:
+        - bearerAuth: []
+      summary: Create a category (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryInput'
+            examples:
+              root:
+                value:
+                  name: Electronics
+              child:
+                value:
+                  name: Mobiles
+                  parent: 507f1f77bcf86cd799439011
+      responses:
+        '201':
+          description: Category created
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Parent category not found
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /categories/{categoryId}:
+    parameters:
+      - $ref: '#/components/parameters/CategoryId'
+    patch:
+      tags: [Categories]
+      security:
+        - bearerAuth: []
+      summary: Rename or move a category (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryUpdate'
+      responses:
+        '200':
+          description: Category updated; moving also updates descendant ancestors
+        '400':
+          description: A circular category move was requested
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Duplicate sibling category name
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '503':
+          description: Category moves require a MongoDB replica set
+    delete:
+      tags: [Categories]
+      security:
+        - bearerAuth: []
+      summary: Delete an empty leaf category (admin only)
+      responses:
+        '200':
+          description: Category deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Category has descendants or products
+  /products:
+    get:
+      tags: [Products]
+      summary: List and filter active products
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: Includes products in descendant categories
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{24}$'
+        - name: minPrice
+          in: query
+          description: Minimum effective price in integer paise
+          schema:
+            type: integer
+            minimum: 0
+        - name: maxPrice
+          in: query
+          description: Maximum effective price in integer paise
+          schema:
+            type: integer
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [price, '-price', name, '-name', newest, oldest]
+            default: newest
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Product page and pagination metadata
+        '404':
+          description: Category not found
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    post:
+      tags: [Products]
+      security:
+        - bearerAuth: []
+      summary: Create a product (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+            example:
+              name: Wireless Headphones
+              sku: AUDIO-001
+              description: Bluetooth headphones
+              pricePaise: 125000
+              salePricePaise: 99900
+              stock: 10
+              category: 507f1f77bcf86cd799439011
+      responses:
+        '201':
+          description: Product created; effective price is calculated by the API
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  product:
+                    _id: 507f1f77bcf86cd799439011
+                    name: Wireless Headphones
+                    sku: AUDIO-001
+                    pricePaise: 125000
+                    salePricePaise: 99900
+                    effectivePricePaise: 99900
+                    stock: 10
+                    status: active
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Active category not found
+        '409':
+          description: SKU already exists
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /products/{productId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+    get:
+      tags: [Products]
+      summary: Get an active product
+      responses:
+        '200':
+          description: Product detail
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    patch:
+      tags: [Products]
+      security:
+        - bearerAuth: []
+      summary: Update a product (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductUpdate'
+      responses:
+        '200':
+          description: Updated product
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Product or active category not found
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Products]
+      security:
+        - bearerAuth: []
+      summary: Deactivate a product (admin only)
+      responses:
+        '200':
+          description: Product marked inactive; order snapshots remain intact
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /admin/products:
+    get:
+      tags: [Products]
+      security:
+        - bearerAuth: []
+      summary: List active and inactive products (admin only)
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: minPrice
+          in: query
+          schema:
+            type: integer
+        - name: maxPrice
+          in: query
+          schema:
+            type: integer
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [price, '-price', name, '-name', newest, oldest]
+            default: newest
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Product page including inactive items
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /orders:
+    get:
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      summary: List the signed-in user's orders; admins see all orders
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/OrderStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Order page and pagination metadata
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    post:
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      summary: Place an order as a customer
+      description: |
+        Send product IDs and quantities only. Server prices products and
+        reserves stock transactionally. Repeated product IDs are combined.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderInput'
+            example:
+              items:
+                - productId: 507f1f77bcf86cd799439011
+                  quantity: 2
+      responses:
+        '201':
+          description: Order saved and stock reserved
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  order:
+                    _id: 507f1f77bcf86cd799439012
+                    status: pending
+                    totalPaise: 199800
+                    items:
+                      - name: Wireless Headphones
+                        sku: AUDIO-001
+                        unitPricePaise: 99900
+                        quantity: 2
+                        lineTotalPaise: 199800
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Only customer accounts can place orders
+        '409':
+          description: Product unavailable or insufficient stock; transaction rolled back
+          content:
+            application/json:
+              example:
+                success: false
+                message: Product is unavailable or does not have enough stock
+        '422':
+          description: Invalid order body; client prices are rejected
+  /orders/{orderId}:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    get:
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      summary: Get an order owned by the user; admins can get any order
+      responses:
+        '200':
+          description: Order with item snapshots
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Order not found or not owned by the user
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /orders/{orderId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    patch:
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      summary: Cancel the customer's own pending order
+      description: Stock restoration and order cancellation share a transaction.
+      responses:
+        '200':
+          description: Order cancelled and stock restored
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Only customers can use this endpoint
+        '404':
+          description: Order not found or not owned by the user
+        '409':
+          description: Order is no longer pending
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /orders/{orderId}/status:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    patch:
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      summary: Change order status (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/OrderStatus'
+            example:
+              status: confirmed
+      responses:
+        '200':
+          description: Status changed and history recorded
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Invalid transition; admin cancellation restores stock transactionally
+        '422':
+          $ref: '#/components/responses/ValidationError'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ObjectId'
+    CategoryId:
+      name: categoryId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ObjectId'
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ObjectId'
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ObjectId'
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Authenticated user lacks the required role
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    ObjectId:
+      type: string
+      pattern: '^[a-fA-F0-9]{24}$'
+    OrderStatus:
+      type: string
+      enum: [pending, confirmed, processing, shipped, delivered, cancelled]
+    Error:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Validation failed
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+    HealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+              example: ok
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    User:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/ObjectId'
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [customer, admin]
+        isActive:
+          type: boolean
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            token:
+              type: string
+              description: JWT; send as Authorization Bearer token
+    CategoryInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        parent:
+          type: string
+          nullable: true
+          pattern: '^[a-fA-F0-9]{24}$'
+    CategoryUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        parent:
+          type: string
+          nullable: true
+          pattern: '^[a-fA-F0-9]{24}$'
+    ProductInput:
+      type: object
+      additionalProperties: false
+      required: [name, sku, description, pricePaise, stock, category]
+      properties:
+        name:
+          type: string
+        sku:
+          type: string
+        description:
+          type: string
+        pricePaise:
+          type: integer
+          minimum: 1
+        salePricePaise:
+          type: integer
+          nullable: true
+        stock:
+          type: integer
+          minimum: 0
+        category:
+          $ref: '#/components/schemas/ObjectId'
+        status:
+          type: string
+          enum: [active, inactive]
+    ProductUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: Provide one or more mutable product fields; effective price is server-calculated.
+      properties:
+        name:
+          type: string
+        sku:
+          type: string
+        description:
+          type: string
+        pricePaise:
+          type: integer
+          minimum: 1
+        salePricePaise:
+          type: integer
+          nullable: true
+        stock:
+          type: integer
+          minimum: 0
+        category:
+          $ref: '#/components/schemas/ObjectId'
+        status:
+          type: string
+          enum: [active, inactive]
+    OrderInput:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            additionalProperties: false
+            required: [productId, quantity]
+            properties:
+              productId:
+                $ref: '#/components/schemas/ObjectId'
+              quantity:
+                type: integer
+                minimum: 1
+                maximum: 100
